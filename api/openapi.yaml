@@ -1,0 +1,214 @@
+openapi: 3.1.0
+info:
+  title: Foreman admin API
+  version: 0.1.0
+  description: |
+    JSON admin API served by foremanhttp.Handler, mounted by the embedding
+    application under any prefix. It has no authentication of its own: protect
+    it with the application's middleware. Errors use the envelope
+    {"error": {"code", "message", "request_id"}}; codes are listed in
+    docs/guides/errors.md.
+  license:
+    name: Apache-2.0
+    identifier: Apache-2.0
+paths:
+  /v1/jobs:
+    get:
+      operationId: listJobs
+      summary: List jobs, newest first, with cursor pagination.
+      parameters:
+        - {name: state, in: query, schema: {type: string}, description: "Repeated or comma-separated states."}
+        - {name: kind, in: query, schema: {type: string}, description: "Repeated or comma-separated kinds."}
+        - {name: queue, in: query, schema: {type: string}, description: "Repeated or comma-separated queues."}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 500, default: 50}}
+        - {name: cursor, in: query, schema: {type: string}}
+      responses:
+        "200":
+          description: A page of jobs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {$ref: "#/components/schemas/Job"}}
+                  next_cursor: {type: string}
+        "400": {$ref: "#/components/responses/Error"}
+  /v1/jobs/{id}:
+    get:
+      operationId: getJob
+      summary: Get one job.
+      parameters: [{$ref: "#/components/parameters/JobID"}]
+      responses:
+        "200": {$ref: "#/components/responses/Job"}
+        "400": {$ref: "#/components/responses/Error"}
+        "404": {$ref: "#/components/responses/Error"}
+  /v1/jobs/{id}/retry:
+    post:
+      operationId: retryJob
+      summary: Move a discarded, cancelled or completed job back to available.
+      parameters: [{$ref: "#/components/parameters/JobID"}]
+      responses:
+        "200": {$ref: "#/components/responses/Job"}
+        "404": {$ref: "#/components/responses/Error"}
+        "409": {$ref: "#/components/responses/Error"}
+  /v1/jobs/{id}/cancel:
+    post:
+      operationId: cancelJob
+      summary: Cancel a job; for a running job a cancel is requested.
+      parameters: [{$ref: "#/components/parameters/JobID"}]
+      responses:
+        "200": {$ref: "#/components/responses/Job"}
+        "404": {$ref: "#/components/responses/Error"}
+        "409": {$ref: "#/components/responses/Error"}
+  /v1/jobs/{id}/discard:
+    post:
+      operationId: discardJob
+      summary: Discard a job in any non-final state.
+      parameters: [{$ref: "#/components/parameters/JobID"}]
+      responses:
+        "200": {$ref: "#/components/responses/Job"}
+        "404": {$ref: "#/components/responses/Error"}
+        "409": {$ref: "#/components/responses/Error"}
+  /v1/queues:
+    get:
+      operationId: listQueues
+      summary: List queues with pause state and pending job counts.
+      responses:
+        "200":
+          description: Queues.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data: {type: array, items: {$ref: "#/components/schemas/Queue"}}
+  /v1/queues/{name}/pause:
+    post:
+      operationId: pauseQueue
+      summary: Stop every client from fetching jobs of the queue.
+      parameters: [{$ref: "#/components/parameters/QueueName"}]
+      responses:
+        "200": {$ref: "#/components/responses/QueueState"}
+        "400": {$ref: "#/components/responses/Error"}
+  /v1/queues/{name}/resume:
+    post:
+      operationId: resumeQueue
+      summary: Let clients fetch jobs of the queue again.
+      parameters: [{$ref: "#/components/parameters/QueueName"}]
+      responses:
+        "200": {$ref: "#/components/responses/QueueState"}
+        "400": {$ref: "#/components/responses/Error"}
+  /v1/leader:
+    get:
+      operationId: getLeader
+      summary: Current holder of the leader lease.
+      responses:
+        "200":
+          description: The lease.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [leader_id, elected_at, expires_at]
+                properties:
+                  leader_id: {type: string}
+                  elected_at: {type: string, format: date-time}
+                  expires_at: {type: string, format: date-time}
+        "404": {$ref: "#/components/responses/Error"}
+components:
+  parameters:
+    JobID:
+      name: id
+      in: path
+      required: true
+      schema: {type: integer, format: int64, minimum: 1}
+    QueueName:
+      name: name
+      in: path
+      required: true
+      schema: {type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.:\\-]{0,127}$"}
+  responses:
+    Job:
+      description: A job.
+      content:
+        application/json:
+          schema: {$ref: "#/components/schemas/Job"}
+    QueueState:
+      description: The queue's new pause state.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [queue, paused]
+            properties:
+              queue: {type: string}
+              paused: {type: boolean}
+    Error:
+      description: Error envelope.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message, request_id]
+                properties:
+                  code:
+                    type: string
+                    enum: [not_found, invalid_argument, invalid_transition, unique_conflict, internal]
+                  message: {type: string}
+                  request_id: {type: string}
+  schemas:
+    Job:
+      type: object
+      required: [id, kind, queue, state, args, priority, attempt, max_attempts, scheduled_at, created_at,
+        attempted_by, errors, tags, metadata]
+      properties:
+        id: {type: integer, format: int64}
+        kind: {type: string}
+        queue: {type: string}
+        state:
+          type: string
+          enum: [available, scheduled, running, retryable, completed, cancelled, discarded]
+        args: {}
+        priority: {type: integer, minimum: 1, maximum: 4}
+        attempt: {type: integer}
+        max_attempts: {type: integer}
+        scheduled_at: {type: string, format: date-time}
+        created_at: {type: string, format: date-time}
+        attempted_at: {type: string, format: date-time}
+        finalized_at: {type: string, format: date-time}
+        heartbeat_at: {type: string, format: date-time}
+        cancel_requested_at: {type: string, format: date-time}
+        attempted_by: {type: array, items: {type: string}}
+        errors:
+          type: array
+          items:
+            type: object
+            required: [at, attempt, error]
+            properties:
+              at: {type: string, format: date-time}
+              attempt: {type: integer}
+              error: {type: string}
+              trace: {type: string}
+        tags: {type: array, items: {type: string}}
+        metadata: {type: object}
+        unique_key: {type: string, description: "Hex SHA-256 of the canonical unique identity."}
+        concurrency_key: {type: string}
+        timeout_ms: {type: integer}
+    Queue:
+      type: object
+      required: [name, paused, available, scheduled, running, retryable]
+      properties:
+        name: {type: string}
+        paused: {type: boolean}
+        paused_at: {type: string, format: date-time}
+        last_seen_at: {type: string, format: date-time}
+        available: {type: integer}
+        scheduled: {type: integer}
+        running: {type: integer}
+        retryable: {type: integer}

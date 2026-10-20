@@ -1,0 +1,6 @@
+ID  KIND    QUEUE    STATE      ATTEMPT  PRIORITY  SCHEDULED_AT
+5   report  mail     discarded  1/25     2         2026-10-01T12:00:04Z
+4   report  mail     completed  1/25     2         2026-10-01T12:00:03Z
+3   report  reports  scheduled  0/25     2         2026-10-01T13:00:00Z
+2   report  reports  available  0/25     1         2026-10-01T12:00:01Z
+1   report  reports  available  0/25     2         2026-10-01T12:00:00Z

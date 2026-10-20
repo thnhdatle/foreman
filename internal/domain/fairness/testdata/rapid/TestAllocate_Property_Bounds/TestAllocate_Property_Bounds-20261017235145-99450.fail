@@ -1,0 +1,221 @@
+# 2026/10/17 23:51:45.239159 [TestAllocate_Property_Bounds] [rapid] draw k: 5
+# 2026/10/17 23:51:45.239170 [TestAllocate_Property_Bounds] [rapid] draw n: 17
+# 2026/10/17 23:51:45.239177 [TestAllocate_Property_Bounds] [rapid] draw fair: true
+# 2026/10/17 23:51:45.239185 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239190 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239196 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239201 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239205 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239210 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239216 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239221 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239225 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239230 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239235 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239239 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239244 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239248 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239256 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239260 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239264 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239268 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239275 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239279 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239283 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239287 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239292 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239297 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239301 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239306 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239310 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239315 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239319 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239323 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239328 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239336 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239341 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239346 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239350 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239354 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239359 [TestAllocate_Property_Bounds] [rapid] draw headroom: 0
+# 2026/10/17 23:51:45.239363 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239368 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239372 [TestAllocate_Property_Bounds] [rapid] draw headroom: 1
+# 2026/10/17 23:51:45.239377 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239381 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239385 [TestAllocate_Property_Bounds] [rapid] draw headroom: 1
+# 2026/10/17 23:51:45.239389 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239393 [TestAllocate_Property_Bounds] [rapid] draw off: 1
+# 2026/10/17 23:51:45.239399 [TestAllocate_Property_Bounds] [rapid] draw headroom: 2
+# 2026/10/17 23:51:45.239403 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239407 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239411 [TestAllocate_Property_Bounds] [rapid] draw headroom: -1
+# 2026/10/17 23:51:45.239415 [TestAllocate_Property_Bounds] [rapid] draw prio: 1
+# 2026/10/17 23:51:45.239419 [TestAllocate_Property_Bounds] [rapid] draw off: 0
+# 2026/10/17 23:51:45.239424 [TestAllocate_Property_Bounds] [rapid] draw served: 0
+# 2026/10/17 23:51:45.239462 [TestAllocate_Property_Bounds] fair mode starved key o of the best level
+# 
+v0.4.8#18003370385697574441
+0x0
+0x6b74f03291620
+0x5
+0x0
+0xc05c654ab866b
+0x11
+0x1
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x1
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x1
+0x0
+0x0
+0x0
+0x0
+0x0
+0x1
+0x0
+0x38e38e38e38e4
+0x2
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x10000000000000
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0

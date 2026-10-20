@@ -1,0 +1,14 @@
+id:            2
+kind:          report
+queue:         reports
+state:         available
+attempt:       0/25
+priority:      1
+scheduled_at:  2026-10-01T12:00:01Z
+created_at:    2026-10-01T12:00:01Z
+attempted_at:  -
+finalized_at:  -
+attempted_by:  
+concurrency:   tenant-a
+args:          {"name": "weekly"}
+metadata:      {}

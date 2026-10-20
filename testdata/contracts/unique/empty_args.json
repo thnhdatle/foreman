@@ -1,0 +1,8 @@
+{
+  "canonical": "{\"args\":{},\"kind\":\"report\"}",
+  "identity": {
+    "kind": "report",
+    "args": {}
+  },
+  "sha256": "9a913f2abf8eafe0b91644a72a68079d3065bbfab4b176425174c9f31e6447d0"
+}

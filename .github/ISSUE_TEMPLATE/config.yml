@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/thnhdatle/foreman/security/policy
+    about: Please report vulnerabilities privately as described in the security policy.

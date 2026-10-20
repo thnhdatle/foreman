@@ -1,0 +1,2 @@
+sending "welcome" email to user 1 (attempt 1)
+job completed: id=1 state=completed

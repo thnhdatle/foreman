@@ -1,0 +1,62 @@
+# Dependencies for integration examples, acceptance tests and benchmarks.
+# Foreman is a library: there is no Foreman service in this stack; clients run
+# natively on the host and connect to Postgres directly (port 55432) or through
+# Toxiproxy (port 55433) for connection-loss tests.
+name: foreman
+
+services:
+  postgres:
+    image: ${FOREMAN_PG_IMAGE:-postgres:17}
+    environment:
+      POSTGRES_USER: foreman
+      POSTGRES_PASSWORD: foreman
+      POSTGRES_DB: foreman
+    command:
+      - postgres
+      - -c
+      - max_connections=600
+      - -c
+      - shared_buffers=2GB
+      - -c
+      - effective_cache_size=6GB
+      - -c
+      - work_mem=16MB
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_wal_size=8GB
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - wal_buffers=64MB
+      - -c
+      - random_page_cost=1.1
+      - -c
+      - max_locks_per_transaction=256
+      - -c
+      - autovacuum_naptime=10s
+    ports:
+      - "55432:5432"
+    shm_size: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U foreman -d foreman"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  toxiproxy:
+    image: ghcr.io/shopify/toxiproxy:2.13.0
+    command: ["-host=0.0.0.0", "-config=/config/toxiproxy.json"]
+    volumes:
+      - ./toxiproxy.json:/config/toxiproxy.json:ro
+    ports:
+      - "58474:8474"
+      - "55433:5433"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "/toxiproxy-cli", "list"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

@@ -1,0 +1,13 @@
+/bin/
+/dist/
+/coverage/
+*.coverprofile
+*.out
+*.test
+acceptance/logs/
+out/
+.venv/
+__pycache__/
+*.local.yaml
+.DS_Store
+**/testdata/rapid/

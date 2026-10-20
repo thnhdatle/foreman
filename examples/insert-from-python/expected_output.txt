@@ -1,0 +1,3 @@
+python inserted job 1; unique duplicate returned job 1
+go worker sending "welcome" to ada@example.com
+job 1 completed

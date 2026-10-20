@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Validates the one-line Conventional Commit format.
+set -euo pipefail
+
+msg_file="$1"
+# Ignore comment lines git adds in the editor.
+msg=$(grep -v '^#' "$msg_file" | sed -e '/^[[:space:]]*$/d')
+lines=$(printf '%s\n' "$msg" | wc -l | tr -d ' ')
+if [ "$lines" -ne 1 ]; then
+  echo "commit message must be exactly one line (got $lines)" >&2
+  exit 1
+fi
+re='^(feat|fix|perf|refactor|test|docs|build|ci|chore)(\([a-z0-9-]+\))?!?: [a-z0-9].{0,70}[^.]$'
+if ! printf '%s' "$msg" | grep -Eq "$re"; then
+  echo "commit message does not match: $re" >&2
+  echo "  $msg" >&2
+  exit 1
+fi
+if [ "${#msg}" -gt 72 ]; then
+  echo "commit message longer than 72 characters (${#msg})" >&2
+  exit 1
+fi

@@ -1,0 +1,11 @@
+{
+  "canonical": "{\"args\":{\"aa\":2,\"b\":1},\"kind\":\"k\"}",
+  "identity": {
+    "kind": "k",
+    "args": {
+      "b": 1,
+      "aa": 2
+    }
+  },
+  "sha256": "04f3fe38dba1a32a32b96b0fe97b7ea925d8c1e6ef33cdcd69ff6c18437fbf34"
+}

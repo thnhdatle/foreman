@@ -1,0 +1,2 @@
+export stopped after
+job cancelled: state=cancelled

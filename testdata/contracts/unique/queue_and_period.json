@@ -1,0 +1,10 @@
+{
+  "canonical": "{\"args\":{},\"kind\":\"k\",\"period\":1760600000,\"queue\":\"emails\"}",
+  "identity": {
+    "kind": "k",
+    "args": {},
+    "queue": "emails",
+    "period": 1760600000
+  },
+  "sha256": "5720beb4f433a52c832ab8dfc68750c685ffd258a76ce7891c2af7e67ff89c6e"
+}

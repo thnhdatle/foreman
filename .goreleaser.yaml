@@ -1,0 +1,62 @@
+version: 2
+project_name: foreman
+
+before:
+  hooks:
+    - go mod download
+
+builds:
+  - id: foreman
+    main: ./cmd/foreman
+    binary: foreman
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.version={{ .Version }} -X main.commit={{ .ShortCommit }} -X main.buildDate={{ .Date }}
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+
+archives:
+  - id: foreman
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - NOTICE
+      - README.md
+      - CHANGELOG.md
+
+checksum:
+  name_template: checksums.txt
+
+sboms:
+  - artifacts: archive
+
+dockers_v2:
+  - id: foreman
+    ids: [foreman]
+    dockerfile: deploy/goreleaser.Dockerfile
+    images:
+      - ghcr.io/thnhdatle/foreman
+    tags:
+      - "v{{ .Version }}"
+      - "{{ .Major }}.{{ .Minor }}"
+      - "{{ if not .IsSnapshot }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.source: https://github.com/thnhdatle/foreman
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.licenses: Apache-2.0
+
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: thnhdatle
+    name: foreman

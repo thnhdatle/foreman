@@ -1,0 +1,11 @@
+{
+  "canonical": "{\"args\":{\"tmpl\":\"welcome\",\"user_id\":42},\"kind\":\"email\"}",
+  "identity": {
+    "kind": "email",
+    "args": {
+      "user_id": 42,
+      "tmpl": "welcome"
+    }
+  },
+  "sha256": "53ae504077968d4f487b7d4f35969418974830b9d1399be95710d571ead38661"
+}

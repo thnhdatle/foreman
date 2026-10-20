@@ -1,0 +1,3 @@
+span: foreman.insert resize
+span: foreman.work resize
+foreman.job.attempt=1

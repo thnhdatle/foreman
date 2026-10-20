@@ -1,0 +1,14 @@
+{
+  "error": "foreman: unique args not canonical",
+  "identity": {
+    "kind": "k",
+    "args": {
+      "list": [
+        1,
+        {
+          "v": 2.25
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,7 @@
+queues:     1 (0 paused)
+available:  2
+scheduled:  1
+running:    0
+retryable:  0
+leader:     worker-1
+periodic:   1

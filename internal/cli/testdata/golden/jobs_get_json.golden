@@ -1,0 +1,28 @@
+{
+  "ID": 1,
+  "Kind": "report",
+  "Queue": "reports",
+  "Args": {
+    "name": "daily"
+  },
+  "State": "available",
+  "Priority": 2,
+  "Attempt": 0,
+  "MaxAttempts": 25,
+  "ScheduledAt": "2026-10-01T12:00:00Z",
+  "CreatedAt": "2026-10-01T12:00:00Z",
+  "AttemptedAt": null,
+  "FinalizedAt": null,
+  "HeartbeatAt": null,
+  "CancelRequestedAt": null,
+  "AttemptedBy": [],
+  "Errors": null,
+  "Tags": [
+    "finance"
+  ],
+  "Metadata": {},
+  "UniqueKey": null,
+  "UniqueStates": [],
+  "ConcurrencyKey": "",
+  "Timeout": 0
+}

@@ -1,0 +1,13 @@
+{
+  "canonical": "{\"args\":{\"x\":[1,2]},\"kind\":\"k\"}",
+  "identity": {
+    "kind": "k",
+    "args": {
+      "x": [
+        1,
+        2
+      ]
+    }
+  },
+  "sha256": "4703507b46a219ae8e58373f4ccfafca1b821db25a1c3cc519c4f87177ae8fab"
+}

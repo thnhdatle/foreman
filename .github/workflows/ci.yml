@@ -1,0 +1,99 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - run: scripts/ci-install-tools.sh
+      - run: make lint test
+
+  # integration:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 45
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       postgres: ["14", "15", "16", "17"]
+  #   env:
+  #     FOREMAN_TEST_PG_IMAGE: postgres:${{ matrix.postgres }}
+  #   steps:
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  #       with:
+  #         persist-credentials: false
+  #     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+  #       with:
+  #         go-version-file: go.mod
+  #     - run: make test-integration
+
+  # # acceptance:
+  # #   runs-on: ubuntu-latest
+  # #   timeout-minutes: 120
+  # #   steps:
+  # #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  # #       with:
+  # #         persist-credentials: false
+  # #     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+  # #       with:
+  # #         go-version-file: go.mod
+  # #     - run: make acceptance CI=1
+  # #     - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+  # #       if: always()
+  # #       with:
+  # #         name: acceptance-report
+  # #         path: |
+  # #           acceptance/report.md
+  # #           acceptance/logs/
+
+  # # quickstart:
+  # #   runs-on: ubuntu-latest
+  # #   timeout-minutes: 20
+  # #   steps:
+  # #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  # #       with:
+  # #         persist-credentials: false
+  # #     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+  # #       with:
+  # #         go-version-file: go.mod
+  # #     - run: make quickstart-test
+
+  # release-dry:
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   steps:
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #     - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+  #       with:
+  #         go-version-file: go.mod
+  #         cache: false
+  #     - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+  #     - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+  #     - uses: goreleaser/goreleaser-action@a4f02ab5355a589de60d917a659ce617ed19b3de # v7.3.0
+  #       with:
+  #         install-only: true
+  #         version: "~> v2"
+  #     - run: scripts/ci-install-tools.sh
+  #     - run: make release-dry

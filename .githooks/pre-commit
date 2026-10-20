@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+# Repo-local pre-commit checks.
+set -euo pipefail
+
+staged_go=$(git diff --cached --name-only --diff-filter=ACM -- '*.go' | grep -v '^testdata/' || true)
+if [ -n "$staged_go" ]; then
+  # shellcheck disable=SC2086
+  unformatted=$(go tool gofumpt -l $staged_go)
+  if [ -n "$unformatted" ]; then
+    echo "gofumpt: files need formatting:" >&2
+    echo "$unformatted" >&2
+    exit 1
+  fi
+  if git rev-parse --verify HEAD >/dev/null 2>&1; then
+    golangci-lint run --new-from-rev=HEAD ./...
+  fi
+fi
+
+gitleaks git --staged --no-banner --redact --log-level warn .

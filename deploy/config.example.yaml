@@ -1,0 +1,27 @@
+# Configuration of the foreman admin CLI (every option, with its default).
+# Precedence: flags > FOREMAN_* environment variables > this file > defaults.
+# Use with: foreman --config deploy/config.example.yaml <command>
+#
+# The database URL is a secret: set FOREMAN_DATABASE_URL or --database-url,
+# or point database_url_file at a file holding it. It is never read from
+# this file directly.
+
+# File holding the Postgres connection string (env: FOREMAN_DATABASE_URL_FILE).
+# Default: "" (use FOREMAN_DATABASE_URL or --database-url).
+database_url_file: ""
+
+# Schema holding the Foreman tables (env: FOREMAN_SCHEMA). Default: public.
+schema: public
+
+# Output format of commands: text or json (env: FOREMAN_OUTPUT). Default: text.
+output: text
+
+# Timeout of each command; Go duration or days with a d suffix
+# (env: FOREMAN_TIMEOUT). Default: 30s.
+timeout: 30s
+
+log:
+  # debug, info, warn or error (env: FOREMAN_LOG_LEVEL). Default: warn.
+  level: warn
+  # text or json (env: FOREMAN_LOG_FORMAT). Default: text.
+  format: text
