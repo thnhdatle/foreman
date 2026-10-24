@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command multi-tenant-fairness shows a small tenant served promptly despite
-// a large tenant's backlog, with a per-tenant concurrency limit.
+// Command multi-tenant-fairness shows a small tenant served despite a large backlog.
 package main
 
 import (
@@ -17,13 +16,11 @@ import (
 	"github.com/thnhdatle/foreman/examples/internal/exampledb"
 )
 
-// ReportArgs belong to a tenant.
 type ReportArgs struct {
 	Tenant string `json:"tenant"`
 	N      int    `json:"n"`
 }
 
-// Kind identifies the job type.
 func (ReportArgs) Kind() string { return "report" }
 
 func main() {
@@ -58,7 +55,6 @@ func run(ctx context.Context) error {
 		return nil
 	}))
 
-	// Big tenant first: a backlog of 200 jobs, then 5 jobs of a small tenant.
 	producer, err := foreman.NewClient(pool, foreman.Config{Schema: schema})
 	if err != nil {
 		return err

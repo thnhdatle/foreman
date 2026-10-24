@@ -12,12 +12,10 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// adminBatch bounds the rows changed per statement by bulk admin operations.
 const adminBatch = 1000
 
 var jobGet = `SELECT ` + cols() + ` FROM {{s}}.foreman_jobs j WHERE j.id = $1`
 
-// JobGet returns one job or job.ErrNotFound.
 func (s *Store) JobGet(ctx context.Context, id int64) (*job.Row, error) {
 	r, err := scanRow(s.pool.QueryRow(ctx, s.sql(jobGet), id))
 	if err != nil {
@@ -26,7 +24,6 @@ func (s *Store) JobGet(ctx context.Context, id int64) (*job.Row, error) {
 	return r, nil
 }
 
-// Filter selects jobs for list and bulk operations; empty fields match all.
 type Filter struct {
 	IDs           []int64
 	Kinds         []string
@@ -34,8 +31,7 @@ type Filter struct {
 	States        []job.State
 	CreatedAfter  time.Time
 	CreatedBefore time.Time
-	// BeforeID restricts to ids below it (list cursor); 0 = no restriction.
-	BeforeID int64
+	BeforeID      int64
 }
 
 const filterWhere = `
@@ -72,7 +68,6 @@ func nonNil[T any](s []T) []T {
 	return s
 }
 
-// JobList returns up to limit jobs matching f, newest first.
 func (s *Store) JobList(ctx context.Context, f Filter, limit int) ([]*job.Row, error) {
 	args := f.args()
 	args["limit"] = limit
@@ -81,15 +76,12 @@ func (s *Store) JobList(ctx context.Context, f Filter, limit int) ([]*job.Row, e
 	return rows, translate("list jobs", err)
 }
 
-// controlMessage is the JSON payload on the control channel.
 type controlMessage struct {
 	Action string `json:"action"`
 	JobID  int64  `json:"job_id,omitempty"`
 	Queue  string `json:"queue,omitempty"`
 }
 
-// cancelJobs cancels non-running jobs at once and requests cancellation of
-// running ones, notifying the owning client.
 var cancelJobs = `
 WITH target AS (
   SELECT j.id, j.state FROM {{s}}.foreman_jobs j
@@ -111,8 +103,6 @@ notified AS (
 )
 SELECT ` + plainCols("upd") + `, (SELECT count(*) FROM notified) FROM upd`
 
-// discardJobs discards jobs in any non-final state; running jobs are also
-// signalled so their worker stops (its completion is then rejected as stale).
 var discardJobs = `
 WITH target AS (
   SELECT j.id, j.state FROM {{s}}.foreman_jobs j
@@ -130,8 +120,6 @@ notified AS (
 )
 SELECT ` + plainCols("upd") + `, (SELECT count(*) FROM notified) FROM upd`
 
-// retryJobs moves final jobs back to available with attempt 0 and a
-// metadata note, waking their queues.
 var retryJobs = `
 WITH target AS (
   SELECT j.id, j.state FROM {{s}}.foreman_jobs j
@@ -159,7 +147,6 @@ DELETE FROM {{s}}.foreman_jobs WHERE id IN (
   ORDER BY j.id LIMIT @limit FOR UPDATE SKIP LOCKED
 )`
 
-// Admin operations on jobs.
 const (
 	OpCancel  = "cancel"
 	OpDiscard = "discard"
@@ -177,8 +164,6 @@ func (s *Store) adminSQL(op string) string {
 	}
 }
 
-// JobUpdate applies op to the jobs matching f (at most limit of them) and
-// returns the changed rows.
 func (s *Store) JobUpdate(ctx context.Context, op string, f Filter, now time.Time, limit int) ([]*job.Row, error) {
 	args := f.args()
 	args["limit"], args["now"] = limit, now
@@ -200,8 +185,6 @@ func (s *Store) JobUpdate(ctx context.Context, op string, f Filter, now time.Tim
 	return out, translate(op+" jobs", r.Err())
 }
 
-// JobUpdateAll applies op in batches until no matching job is left and
-// returns the number of jobs changed.
 func (s *Store) JobUpdateAll(ctx context.Context, op string, f Filter, now time.Time) (int, error) {
 	total := 0
 	for {
@@ -213,7 +196,6 @@ func (s *Store) JobUpdateAll(ctx context.Context, op string, f Filter, now time.
 	}
 }
 
-// JobDeleteAll deletes the non-running jobs matching f in batches.
 func (s *Store) JobDeleteAll(ctx context.Context, f Filter) (int, error) {
 	total := 0
 	args := f.args()
@@ -239,7 +221,6 @@ WITH upsert AS (
 )
 SELECT pg_notify($4, $5) FROM upsert`
 
-// QueueSetPaused pauses (paused=true) or resumes a queue and notifies clients.
 func (s *Store) QueueSetPaused(ctx context.Context, name string, paused bool, now time.Time) error {
 	var pausedAt *time.Time
 	action := "resume"
@@ -255,7 +236,6 @@ func (s *Store) QueueSetPaused(ctx context.Context, name string, paused bool, no
 	return translate(action+" queue", err)
 }
 
-// QueueRow describes one queue for admin views.
 type QueueRow struct {
 	Name      string
 	PausedAt  *time.Time
@@ -275,7 +255,6 @@ LEFT JOIN {{s}}.foreman_queues q ON q.name = n.name
 LEFT JOIN counts c ON c.queue = n.name
 ORDER BY n.name, c.state`
 
-// QueueList lists known queues with pending job counts per state.
 func (s *Store) QueueList(ctx context.Context) ([]*QueueRow, error) {
 	r, err := s.pool.Query(ctx, s.sql(queueList))
 	if err != nil {
@@ -301,16 +280,13 @@ func (s *Store) QueueList(ctx context.Context) ([]*QueueRow, error) {
 	return out, translate("list queues", r.Err())
 }
 
-// PeriodicRow summarises the ticks recorded for one periodic job.
 type PeriodicRow struct {
 	Name     string
 	LastTick time.Time
 	Ticks    int64
 }
 
-// PeriodicList lists periodic jobs that have enqueued at least one tick.
 func (s *Store) PeriodicList(ctx context.Context) ([]*PeriodicRow, error) {
-	// Start markers (ticks without a job) are not listed.
 	r, err := s.pool.Query(ctx, s.sql(`SELECT name, max(tick_at) FILTER (WHERE job_id IS NOT NULL), count(job_id)
 		FROM {{s}}.foreman_periodic_ticks GROUP BY name HAVING count(job_id) > 0 ORDER BY name`))
 	if err != nil {

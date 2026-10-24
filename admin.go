@@ -28,21 +28,19 @@ func (c *Client) JobGet(ctx context.Context, id int64) (*JobRow, error) {
 	return toJobRow(r), nil
 }
 
-// JobListParams filters JobList; empty fields match every job.
+// JobListParams filters JobList.
 type JobListParams struct {
 	States []State
 	Kinds  []string
 	Queues []string
-	// Limit defaults to 50, at most 500.
-	Limit int
-	// Cursor continues from the NextCursor of a previous page.
+	// Limit defaults to 50 and is at most 500.
+	Limit  int
 	Cursor string
 }
 
 // JobListResult is one page of jobs, newest first.
 type JobListResult struct {
-	Jobs []*JobRow
-	// NextCursor is empty on the last page.
+	Jobs       []*JobRow
 	NextCursor string
 }
 
@@ -101,27 +99,17 @@ func toDomainStates(states []State) []job.State {
 	return out
 }
 
-// JobCancel cancels a job. Available, scheduled and retryable jobs
-// are cancelled at once. For a running job a cancel is requested: the owning
-// client cancels the job's context and the job ends cancelled when Work
-// returns, whatever it returns. Cancelling a cancelled job returns it
-// unchanged; completed and discarded jobs give ErrInvalidTransition.
+// JobCancel cancels a job.
 func (c *Client) JobCancel(ctx context.Context, id int64) (*JobRow, error) {
 	return c.jobUpdate(ctx, pgstore.OpCancel, id, job.StateCancelled)
 }
 
-// JobRetry moves a discarded, cancelled or completed job back to available
-// with its attempt reset to 0 and a note in its metadata. A job
-// that is already available is returned unchanged; other states give
-// ErrInvalidTransition.
+// JobRetry moves a finished job back to available.
 func (c *Client) JobRetry(ctx context.Context, id int64) (*JobRow, error) {
 	return c.jobUpdate(ctx, pgstore.OpRetry, id, job.StateAvailable)
 }
 
-// JobDiscard moves a job in any non-final state to discarded (dead letter).
-// A running job's context is cancelled and its result ignored. Discarding a
-// discarded job returns it unchanged; completed and cancelled jobs give
-// ErrInvalidTransition.
+// JobDiscard moves a job to discarded.
 func (c *Client) JobDiscard(ctx context.Context, id int64) (*JobRow, error) {
 	return c.jobUpdate(ctx, pgstore.OpDiscard, id, job.StateDiscarded)
 }
@@ -134,7 +122,7 @@ func (c *Client) jobUpdate(ctx context.Context, op string, id int64, target job.
 	if len(rows) == 1 {
 		cancelRequested := op == pgstore.OpCancel && rows[0].State == job.StateRunning
 		if cancelRequested || op == pgstore.OpDiscard {
-			c.cancelLocal(id) // no-op unless this client runs it; NOTIFY reaches the others
+			c.cancelLocal(id)
 		}
 		return toJobRow(rows[0]), nil
 	}
@@ -158,12 +146,11 @@ func (c *Client) cancelLocal(id int64) {
 	}
 }
 
-// JobFilter selects jobs for bulk operations; empty fields match every job.
+// JobFilter selects jobs for bulk operations.
 type JobFilter struct {
-	Kinds  []string
-	Queues []string
-	States []State
-	// CreatedAfter and CreatedBefore bound created_at (inclusive, exclusive).
+	Kinds         []string
+	Queues        []string
+	States        []State
 	CreatedAfter  time.Time
 	CreatedBefore time.Time
 }
@@ -200,8 +187,7 @@ func (c *Client) updateMany(ctx context.Context, op string, f *JobFilter) (int, 
 	return n, nil
 }
 
-// JobDeleteMany deletes every job matching f except running ones and
-// returns how many.
+// JobDeleteMany deletes matching jobs except running ones and returns how many.
 func (c *Client) JobDeleteMany(ctx context.Context, f *JobFilter) (int, error) {
 	sf, err := f.store()
 	if err != nil {
@@ -214,8 +200,7 @@ func (c *Client) JobDeleteMany(ctx context.Context, f *JobFilter) (int, error) {
 	return n, nil
 }
 
-// QueuePause stops every client from fetching jobs of the queue; running
-// jobs finish. It propagates by NOTIFY and by polling.
+// QueuePause stops clients from fetching jobs of the queue.
 func (c *Client) QueuePause(ctx context.Context, name string) error {
 	return c.setPaused(ctx, name, true)
 }
@@ -243,8 +228,7 @@ func (c *Client) setPaused(ctx context.Context, name string, paused bool) error 
 	return nil
 }
 
-// QueueInfo describes a queue: its pause state, when a client last reported
-// serving it, and its pending jobs per state.
+// QueueInfo describes a queue and its pending jobs.
 type QueueInfo struct {
 	Name       string
 	Paused     bool

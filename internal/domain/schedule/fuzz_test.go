@@ -9,7 +9,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/schedule"
 )
 
-// FuzzParseCron: parsing never panics, and a parsed schedule's ticks strictly increase.
 func FuzzParseCron(f *testing.F) {
 	for _, s := range []string{"* * * * *", "*/5 * * * * *", "@hourly", "0 9 * * MON-FRI", "61 * * * *", "@every 1h", ""} {
 		f.Add(s)

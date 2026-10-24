@@ -151,9 +151,6 @@ func TestTracker(t *testing.T) {
 	assert.Equal(t, uint64(2), tr.LastServed("b"))
 }
 
-// Property: quotas never exceed headroom or capacity, and capacity is fully
-// handed out whenever the candidates have enough headroom; with fairness every
-// key of the best priority level with headroom gets a share.
 func TestAllocate_Property_Bounds(t *testing.T) {
 	t.Parallel()
 	rapid.Check(t, func(rt *rapid.T) {
@@ -222,9 +219,8 @@ func TestAllocate_Property_Bounds(t *testing.T) {
 	})
 }
 
-// simQueue is a discrete-time model of one queue with per-key FIFOs.
 type simQueue struct {
-	jobs map[string][]int // key -> arrival ticks
+	jobs map[string][]int
 }
 
 func (q *simQueue) candidates() []fairness.Candidate {
@@ -240,10 +236,6 @@ func (q *simQueue) candidates() []fairness.Candidate {
 	return out
 }
 
-// simulate runs `ticks` steps of a queue whose workers each finish one job per
-// tick (capacity jobs per tick). Tenant A starts with a standing backlog and
-// arrives at 0.8 x capacity; tenant B arrives at one job every bEvery ticks.
-// It returns B's wait times in ticks.
 func simulate(fair bool, capacity, backlog, ticks, bEvery int) []int {
 	q := &simQueue{jobs: map[string][]int{"A": {}, "B": {}}}
 	for i := 0; i < backlog; i++ {
@@ -287,14 +279,8 @@ func p95(xs []int) int {
 	return sorted[(len(sorted)*95+99)/100-1]
 }
 
-// Fairness simulation: skewed arrival rates with a standing
-// backlog. With fairness the small tenant is served in the tick it arrives;
-// without it, it waits behind the whole backlog.
 func TestAllocate_Simulation_SkewedArrivalsWithBacklog(t *testing.T) {
 	t.Parallel()
-	// Unfair mode is FIFO: a B job arriving at tick t starts once the 2000
-	// backlog jobs and A's 16 jobs/tick ahead of it are done, at tick
-	// 100 + 0.8t, so it waits 100 - 0.2t ticks (≈ 25..100 over 375 ticks).
 	const capacity, backlog, ticks, bEvery = 20, 2000, 400, 7
 	fairWaits := simulate(true, capacity, backlog, ticks, bEvery)
 	unfairWaits := simulate(false, capacity, backlog, ticks, bEvery)

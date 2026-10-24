@@ -98,9 +98,7 @@ func render(sql string, n pgstore.Names) string {
 	).Replace(sql)
 }
 
-// SQL returns the statements Up (up=true) or Down would run on an empty
-// (or fully migrated) database, for users who apply migrations with their
-// own tools. The migrations table is included.
+// SQL returns the statements Up or Down would run.
 func SQL(up bool, opts ...Option) (string, error) {
 	_, names, err := resolve(opts)
 	if err != nil {
@@ -136,9 +134,7 @@ CREATE TABLE IF NOT EXISTS {{schema}}.foreman_migrations (
 );
 `
 
-// Up applies every pending migration, each in its own transaction. Runs
-// are serialised across processes by an advisory lock, so concurrent
-// clients starting at once are safe; Up on an up-to-date schema is a no-op.
+// Up applies every pending migration.
 func Up(ctx context.Context, db DB, opts ...Option) error {
 	_, names, err := resolve(opts)
 	if err != nil {
@@ -167,8 +163,7 @@ func Up(ctx context.Context, db DB, opts ...Option) error {
 	return nil
 }
 
-// Down reverts migrations newest first down to the target version (0 by
-// default, which removes every Foreman object but keeps the schema).
+// Down reverts migrations down to the target version.
 func Down(ctx context.Context, db DB, opts ...Option) error {
 	o, names, err := resolve(opts)
 	if err != nil {

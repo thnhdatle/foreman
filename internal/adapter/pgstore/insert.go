@@ -14,8 +14,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// CopyThreshold is the batch size from which inserts go through COPY into a
-// temporary table; smaller batches use one multi-row statement.
 const CopyThreshold = 10
 
 const insertSourceUnnest = `SELECT * FROM unnest(
@@ -37,11 +35,6 @@ const createBuffer = `CREATE TEMP TABLE IF NOT EXISTS foreman_insert_buffer (
   unique_states text, concurrency_key text, timeout_ms int
 ) ON COMMIT DELETE ROWS`
 
-// insertTemplate inserts rows from a source with the unique key computed in
-// SQL. Duplicate keys inside one batch are collapsed with DISTINCT ON, and a
-// conflict with an existing job returns that job (xmax <> 0 marks rows taken
-// by ON CONFLICT DO UPDATE). Ids are drawn up front so each input row can be
-// matched to its result.
 func insertTemplate(source string) string {
 	return `WITH src AS (` + source + `),
 input AS MATERIALIZED (
@@ -133,8 +126,7 @@ func toArrays(ps []job.InsertParams) (insertArrays, error) {
 	return a, nil
 }
 
-// Insert inserts jobs through db (the pool or a caller's transaction) and
-// returns one result per input in input order.
+// Insert inserts jobs and returns one result per input.
 func (s *Store) Insert(ctx context.Context, db DB, ps []job.InsertParams) ([]job.InsertResult, error) {
 	if len(ps) == 0 {
 		return nil, nil
@@ -190,7 +182,6 @@ func (s *Store) insertCopy(ctx context.Context, tx pgx.Tx, a insertArrays) ([]jo
 	if err != nil {
 		return nil, err
 	}
-	// The buffer is per session; empty it for the next batch of this transaction.
 	if _, err := tx.Exec(ctx, `TRUNCATE foreman_insert_buffer`); err != nil {
 		return nil, err //nolint:wrapcheck // wrapped by Insert
 	}

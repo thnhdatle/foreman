@@ -50,7 +50,6 @@ func startPeriodic(t *testing.T, s *testutil.FakeStore, fc *clock.Fake, jobs ...
 	return pr
 }
 
-// advanceMinutes moves the clock one second at a time, like the leader loop sees it.
 func advanceSeconds(t *testing.T, fc *clock.Fake, n int) {
 	t.Helper()
 	for i := 0; i < n; i++ {
@@ -70,7 +69,7 @@ func TestPeriodic_EnqueuesEachTickOnce(t *testing.T) {
 	s := testutil.NewFakeStore()
 	fc := clock.NewFake(t0.Add(30 * time.Second))
 	startPeriodic(t, s, fc, minuteJob(t, "m", 5*time.Minute))
-	advanceSeconds(t, fc, 150) // 09:00:30 -> 09:03:00
+	advanceSeconds(t, fc, 150)
 	testutil.Eventually(t, func() bool { return len(s.Ticks("m")) == 3 }, time.Second)
 	assert.Equal(t, []time.Time{t0.Add(time.Minute), t0.Add(2 * time.Minute), t0.Add(3 * time.Minute)}, s.Ticks("m"))
 	assert.Len(t, s.Jobs(), 3)
@@ -83,11 +82,10 @@ func TestPeriodic_LeaderGapCatchesUpAndSkipsOlderTicks(t *testing.T) {
 	first := startPeriodic(t, s, fc, minuteJob(t, "m", 5*time.Minute))
 	advanceSeconds(t, fc, 60)
 	testutil.Eventually(t, func() bool { return len(s.Ticks("m")) == 1 }, time.Second)
-	first.stop() // leader lost
+	first.stop()
 
-	fc.Advance(10 * time.Minute) // gap: 09:01 -> 09:11, ticks 09:02..09:11 not enqueued yet
+	fc.Advance(10 * time.Minute)
 	second := startPeriodic(t, s, fc, minuteJob(t, "m", 5*time.Minute))
-	// Window = 5m catch-up + 15s grace: ticks >= 09:05:45 are enqueued, 09:02..09:05 skipped.
 	testutil.Eventually(t, func() bool { return len(s.Ticks("m")) == 7 }, time.Second)
 	want := []time.Time{t0.Add(time.Minute)}
 	for m := 6; m <= 11; m++ {
@@ -127,7 +125,7 @@ func TestPeriodic_RunOnStartAndFailures(t *testing.T) {
 	j.RunOnStart = true
 	broken := minuteJob(t, "broken", time.Minute)
 	broken.Build = func(time.Time) (job.InsertParams, error) { return job.InsertParams{}, errBuild }
-	s.FailNext(1) // LastTicks fails first; retried next run
+	s.FailNext(1)
 	startPeriodic(t, s, fc, j, broken)
 	advanceSeconds(t, fc, 1)
 	testutil.Eventually(t, func() bool { return len(s.Ticks("m")) == 1 }, time.Second)
@@ -144,8 +142,8 @@ func TestPeriodic_EnqueueErrorRetriesSameTick(t *testing.T) {
 	startPeriodic(t, s, fc, minuteJob(t, "m", time.Minute))
 	testutil.Eventually(t, func() bool { return fc.Waiters() >= 1 }, time.Second)
 	s.FailNext(1)
-	advanceSeconds(t, fc, 1) // tick 09:01 fails
-	advanceSeconds(t, fc, 1) // retried
+	advanceSeconds(t, fc, 1)
+	advanceSeconds(t, fc, 1)
 	testutil.Eventually(t, func() bool { return len(s.Ticks("m")) == 1 }, time.Second)
 	assert.Equal(t, []time.Time{t0.Add(time.Minute)}, s.Ticks("m"))
 }
@@ -177,7 +175,7 @@ func TestPeriodic_StartMarkerLetsNextLeaderCatchUp(t *testing.T) {
 	first := startPeriodic(t, s, fc, minuteJob(t, "m", 5*time.Minute))
 	testutil.Eventually(t, func() bool { last, _ := s.LastTicks(context.Background()); return !last["m"].IsZero() },
 		time.Second, "start marker recorded")
-	first.stop() // dies before the first tick at 09:01
+	first.stop()
 	fc.Advance(30 * time.Second)
 	startPeriodic(t, s, fc, minuteJob(t, "m", 5*time.Minute))
 	testutil.Eventually(t, func() bool { return len(s.Ticks("m")) == 1 }, time.Second)

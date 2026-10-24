@@ -19,7 +19,6 @@ import (
 
 func env(m map[string]string) func(string) string { return func(k string) string { return m[k] } }
 
-// The example file parses and documents every field.
 func TestExampleConfigIsCompleteAndValid(t *testing.T) {
 	t.Parallel()
 	path := "../../deploy/config.example.yaml"

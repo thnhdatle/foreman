@@ -7,11 +7,9 @@ import (
 	"time"
 )
 
-// Fake is a manually advanced clock for tests and simulations. Timers and
-// tickers created from it fire only when Advance or Set moves time past
-// their deadline. It is safe for concurrent use.
+// Fake is a manually advanced clock for tests.
 type Fake struct {
-	mu      sync.Mutex // protects all fields below
+	mu      sync.Mutex
 	now     time.Time
 	waiters []*fakeWaiter
 	tickers map[*fakeTicker]struct{}
@@ -27,14 +25,12 @@ func NewFake(start time.Time) *Fake {
 	return &Fake{now: start, tickers: map[*fakeTicker]struct{}{}}
 }
 
-// Now returns the fake current time.
 func (f *Fake) Now() time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.now
 }
 
-// After returns a channel that fires once the fake time reaches now+d.
 func (f *Fake) After(d time.Duration) <-chan time.Time {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -47,7 +43,6 @@ func (f *Fake) After(d time.Duration) <-chan time.Time {
 	return ch
 }
 
-// NewTicker returns a ticker driven by the fake clock.
 func (f *Fake) NewTicker(d time.Duration) Ticker {
 	if d <= 0 {
 		panic("clock: non-positive ticker interval")
@@ -59,7 +54,6 @@ func (f *Fake) NewTicker(d time.Duration) Ticker {
 	return t
 }
 
-// Advance moves the fake time forward by d and fires due timers and tickers.
 func (f *Fake) Advance(d time.Duration) {
 	f.mu.Lock()
 	target := f.now.Add(d)
@@ -67,7 +61,6 @@ func (f *Fake) Advance(d time.Duration) {
 	f.Set(target)
 }
 
-// Set moves the fake time to t (never backwards) and fires due timers and tickers.
 func (f *Fake) Set(t time.Time) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -93,7 +86,7 @@ func (f *Fake) Set(t time.Time) {
 		}
 		select {
 		case tk.ch <- t:
-		default: // like time.Ticker, drop ticks for slow receivers
+		default:
 		}
 		for !tk.next.After(t) {
 			tk.next = tk.next.Add(tk.period)
@@ -101,8 +94,6 @@ func (f *Fake) Set(t time.Time) {
 	}
 }
 
-// Waiters returns the number of pending After timers plus active tickers.
-// Tests use it to wait until goroutines are blocked on the clock.
 func (f *Fake) Waiters() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -113,7 +104,7 @@ type fakeTicker struct {
 	clock  *Fake
 	ch     chan time.Time
 	period time.Duration
-	next   time.Time // protected by clock.mu
+	next   time.Time
 }
 
 func (t *fakeTicker) C() <-chan time.Time { return t.ch }

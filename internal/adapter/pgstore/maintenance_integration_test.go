@@ -41,7 +41,7 @@ func TestStuckJobsAndRescue(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
 	ctx := context.Background()
-	rows := running(t, e, "c1", 3) // heartbeat_at = t0
+	rows := running(t, e, "c1", 3)
 	_, err := e.store.Heartbeat(ctx, "c1", t0.Add(time.Hour), []job.Ref{{ID: rows[2].ID, Attempt: 1}})
 	require.NoError(t, err)
 	cutoff := t0.Add(time.Minute)
@@ -55,7 +55,7 @@ func TestStuckJobsAndRescue(t *testing.T) {
 			Error: &job.AttemptError{At: now, Attempt: 1, Error: "rescued"},
 		},
 		{ID: stuck[1].ID, Attempt: 1, State: job.StateDiscarded, FinalizedAt: now, At: now},
-		{ID: rows[2].ID, Attempt: 1, State: job.StateRetryable, ScheduledAt: now, At: now}, // heartbeat is fresh
+		{ID: rows[2].ID, Attempt: 1, State: job.StateRetryable, ScheduledAt: now, At: now},
 	}
 	n, err := e.store.Rescue(ctx, cutoff, cs)
 	require.NoError(t, err)
@@ -68,7 +68,6 @@ func TestStuckJobsAndRescue(t *testing.T) {
 	n, err = e.store.Rescue(ctx, cutoff, nil)
 	require.NoError(t, err)
 	assert.Zero(t, n)
-	// The rescued attempt's late completion is stale.
 	applied, err := e.store.Complete(ctx, "c1", []job.Completion{{ID: stuck[0].ID, Attempt: 1, State: job.StateCompleted, FinalizedAt: now, At: now}})
 	require.NoError(t, err)
 	assert.Empty(t, applied)
@@ -102,7 +101,6 @@ func TestReindexAndQueueDepths(t *testing.T) {
 	jobInState(t, e, job.StateAvailable)
 	jobInState(t, e, job.StateRunning)
 	jobInState(t, e, job.StateCompleted)
-	// Skipped while another index build runs in the database (other tests migrate in parallel).
 	testutil.Eventually(t, func() bool {
 		ran, err := e.store.Reindex(ctx)
 		require.NoError(t, err)
@@ -132,14 +130,12 @@ func TestListener_ReceivesInsertAndControlNotifications(t *testing.T) {
 	require.NoError(t, l.Listen(ctx, names.InsertChannel))
 	require.NoError(t, l.Listen(ctx, names.ControlChannel))
 
-	// An idle timeout leaves the connection usable (the notifier pings it).
 	idleCtx, idleCancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	_, err = l.WaitForNotification(idleCtx)
 	idleCancel()
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	require.NoError(t, l.Ping(ctx))
 
-	// One notification per queue per statement, only for available jobs.
 	sched := params("k", "q2")
 	sched.State, sched.ScheduledAt = job.StateScheduled, t0.Add(time.Hour)
 	e.insert(t, params("k", "q1"), params("k", "q1"), sched)
@@ -154,7 +150,7 @@ func TestListener_ReceivesInsertAndControlNotifications(t *testing.T) {
 	assert.JSONEq(t, `{"action":"pause","queue":"q1"}`, n.Payload)
 
 	id := running(t, e, "c1", 1)[0].ID
-	n, err = l.WaitForNotification(ctx) // insert of the running helper's job
+	n, err = l.WaitForNotification(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, "q", n.Payload)
 	_, err = e.store.JobUpdate(ctx, "cancel", filterIDs(id), t0, 10)

@@ -7,8 +7,7 @@ import (
 	"time"
 )
 
-// Eventually polls cond every 5ms until it returns true or timeout elapses,
-// in which case the test fails. It replaces time.Sleep-based waiting.
+// Eventually polls cond until it returns true or timeout elapses.
 func Eventually(tb testing.TB, cond func() bool, timeout time.Duration, msgAndArgs ...any) {
 	tb.Helper()
 	deadline := time.NewTimer(timeout)

@@ -32,7 +32,6 @@ func insert(s *testutil.FakeStore, queue, key string, prio int) int64 {
 	})
 }
 
-// completeIn returns an Execute func that marks jobs completed in the store.
 func completeIn(s *testutil.FakeStore, clientID string, before func(ctx context.Context, r *job.Row)) func(context.Context, *job.Row) {
 	return func(ctx context.Context, r *job.Row) {
 		if before != nil {
@@ -176,13 +175,12 @@ func TestProducer_PausedFetchesNothing(t *testing.T) {
 	})
 	testutil.Eventually(t, r.p.Paused, time.Second)
 	r.p.Wake()
-	// Several poll intervals pass while paused.
 	deadline := time.Now().Add(80 * time.Millisecond)
 	testutil.Eventually(t, func() bool { return time.Now().After(deadline) }, time.Second)
 	assert.Zero(t, ran.Load())
 	assert.Zero(t, fetches.Load())
 
-	r.p.SetPaused(true) // NOTIFY says paused: still nothing
+	r.p.SetPaused(true)
 	s.SetPaused("q", false)
 	testutil.Eventually(t, func() bool { return ran.Load() == 1 }, 2*time.Second, "resume picked up by polling")
 }
@@ -224,7 +222,7 @@ func TestProducer_FetchErrorsRetryOnPoll(t *testing.T) {
 	t.Parallel()
 	s := testutil.NewFakeStore()
 	insert(s, "q", "", 2)
-	s.FailNext(3) // QueueHeartbeat, then two fetches
+	s.FailNext(3)
 	var ran atomic.Int32
 	run(t, producer.Config{
 		Store: s, FetchInterval: 10 * time.Millisecond,
@@ -332,9 +330,6 @@ func TestProducer_UnfairKeyedFetchFollowsOrder(t *testing.T) {
 	assert.Equal(t, high, first.Load(), "priority 1 job first")
 }
 
-// Property: concurrent producers never run more than
-// PerKeyLimit jobs of one key at once, measured both in the store and in
-// the workers.
 func TestProducer_Property_PerKeyLimitAcrossProducers(t *testing.T) {
 	t.Parallel()
 	rapid.Check(t, func(rt *rapid.T) {
@@ -404,8 +399,6 @@ func TestProducer_Property_PerKeyLimitAcrossProducers(t *testing.T) {
 	})
 }
 
-// hangingStore makes its first Fetch block until the call's context ends,
-// like a connection whose peer vanished without closing it.
 type hangingStore struct {
 	*testutil.FakeStore
 	hung atomic.Bool

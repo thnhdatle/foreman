@@ -33,7 +33,6 @@ func newIT(t *testing.T) *itEnv {
 	return &itEnv{pool: pool, schema: testDB.Schema(t, pool)}
 }
 
-// client creates a client on the test schema; it is stopped at cleanup.
 func (e *itEnv) client(t *testing.T, cfg Config) *Client {
 	t.Helper()
 	cfg.Schema = e.schema

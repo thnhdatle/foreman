@@ -12,28 +12,23 @@ import (
 	"github.com/thnhdatle/foreman/internal/platform/clock"
 )
 
-// heartbeatChunk bounds the number of jobs per heartbeat statement.
 const heartbeatChunk = 1000
 
-// HeartbeatConfig configures a Heartbeater.
 type HeartbeatConfig struct {
 	ClientID string
 	Store    job.HeartbeatWriter
 	Clock    clock.Clock
 	Logger   *slog.Logger
-	// Interval between heartbeats (Config.HeartbeatInterval).
 	Interval time.Duration
-	// Running lists the attempts this client is executing.
-	Running func() []job.Ref
+	Running  func() []job.Ref
 }
 
-// Heartbeater refreshes heartbeat_at of this client's running jobs in batches
-// every Interval. The completion guard applies.
+// Heartbeater refreshes the heartbeat of this client's running jobs every Interval.
 type Heartbeater struct {
 	cfg HeartbeatConfig
 }
 
-// NewHeartbeater validates cfg.
+// NewHeartbeater validates cfg and applies defaults.
 func NewHeartbeater(cfg HeartbeatConfig) (*Heartbeater, error) {
 	if cfg.ClientID == "" || cfg.Store == nil || cfg.Clock == nil || cfg.Running == nil || cfg.Interval <= 0 {
 		return nil, errors.New("completer: heartbeater needs ClientID, Store, Clock, Running and a positive Interval")
@@ -44,7 +39,7 @@ func NewHeartbeater(cfg HeartbeatConfig) (*Heartbeater, error) {
 	return &Heartbeater{cfg: cfg}, nil
 }
 
-// Run beats every Interval until ctx is cancelled.
+// Run sends heartbeats until ctx is cancelled.
 func (h *Heartbeater) Run(ctx context.Context) error {
 	for {
 		select {
@@ -58,7 +53,7 @@ func (h *Heartbeater) Run(ctx context.Context) error {
 	}
 }
 
-// Beat refreshes the heartbeat of one attempt immediately (foreman.Heartbeat).
+// Beat refreshes the heartbeat of one job now.
 func (h *Heartbeater) Beat(ctx context.Context, ref job.Ref) error {
 	return h.beat(ctx, []job.Ref{ref})
 }

@@ -199,8 +199,6 @@ var resultEvents = map[job.State][]job.Event{
 	job.StateScheduled: {job.EventSnoozed},
 }
 
-// Property: every mapped completion is a legal transition out of running,
-// retries happen only with attempts left, and only snoozes refund an attempt.
 func TestMapResult_Property_LegalTransitions(t *testing.T) {
 	t.Parallel()
 	rapid.Check(t, func(rt *rapid.T) {

@@ -102,7 +102,7 @@ func TestHeartbeater_BeatsRunningJobsEveryInterval(t *testing.T) {
 	mu.Lock()
 	running = []job.Ref{{ID: 1, Attempt: 1}}
 	mu.Unlock()
-	fc.Advance(30 * time.Second) // failure is logged and the loop continues
+	fc.Advance(30 * time.Second)
 	testutil.Eventually(t, func() bool { return fc.Waiters() == 1 }, time.Second)
 	cancel()
 	require.NoError(t, <-done)

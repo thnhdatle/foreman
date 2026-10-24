@@ -15,44 +15,34 @@ import (
 	"github.com/thnhdatle/foreman/internal/platform/clock"
 )
 
-// Defaults for reconnect backoff.
 const (
-	DefaultMinBackoff = 100 * time.Millisecond
-	DefaultMaxBackoff = 5 * time.Second
-	// DefaultIdleTimeout is how long the connection may stay quiet before it
-	// is pinged; a connection that died silently is found within twice this.
+	DefaultMinBackoff  = 100 * time.Millisecond
+	DefaultMaxBackoff  = 5 * time.Second
 	DefaultIdleTimeout = 30 * time.Second
 	closeTimeout       = 5 * time.Second
 )
 
-// Config configures a Notifier.
 type Config struct {
-	Listener job.Listener
-	Clock    clock.Clock
-	Logger   *slog.Logger
-	// MinBackoff and MaxBackoff bound the jittered reconnect delay.
-	MinBackoff time.Duration
-	MaxBackoff time.Duration
-	// IdleTimeout is how long to wait for a notification before pinging the
-	// connection.
+	Listener    job.Listener
+	Clock       clock.Clock
+	Logger      *slog.Logger
+	MinBackoff  time.Duration
+	MaxBackoff  time.Duration
 	IdleTimeout time.Duration
-	// OnConnect runs after every successful (re)connection; notifications
-	// sent while disconnected are lost, so callers re-check state here.
-	OnConnect func()
-	Rand      func() float64
+	OnConnect   func()
+	Rand        func() float64
 }
 
-// Notifier multiplexes one LISTEN connection to many subscribers and
-// reconnects with jittered exponential backoff when the connection drops.
+// Notifier delivers notifications from one LISTEN connection to its subscribers.
 type Notifier struct {
 	cfg       Config
 	connected atomic.Bool
 
-	mu   sync.RWMutex // protects subs
+	mu   sync.RWMutex
 	subs map[string][]func(payload string)
 }
 
-// New validates cfg.
+// New validates cfg and applies defaults.
 func New(cfg Config) (*Notifier, error) {
 	if cfg.Listener == nil || cfg.Clock == nil {
 		return nil, errors.New("notifier: Listener and Clock are required")
@@ -75,18 +65,16 @@ func New(cfg Config) (*Notifier, error) {
 	return &Notifier{cfg: cfg, subs: map[string][]func(string){}}, nil
 }
 
-// Subscribe registers fn for channel. fn runs on the notifier goroutine and
-// must not block. Subscriptions must be made before Run.
+// Subscribe registers fn to run for notifications on channel.
 func (n *Notifier) Subscribe(channel string, fn func(payload string)) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 	n.subs[channel] = append(n.subs[channel], fn)
 }
 
-// Connected reports whether the LISTEN connection is up.
 func (n *Notifier) Connected() bool { return n.connected.Load() }
 
-// Run listens until ctx is cancelled, reconnecting after failures.
+// Run listens and reconnects until ctx is cancelled.
 func (n *Notifier) Run(ctx context.Context) error {
 	failures := 0
 	for {
@@ -126,7 +114,6 @@ func (n *Notifier) channels() []string {
 	return out
 }
 
-// session runs one connection; established reports whether LISTEN succeeded.
 func (n *Notifier) session(ctx context.Context) (established bool, err error) {
 	l := n.cfg.Listener
 	if err := l.Connect(ctx); err != nil {
@@ -154,8 +141,6 @@ func (n *Notifier) session(ctx context.Context) (established bool, err error) {
 		case err == nil:
 			n.dispatch(msg)
 		case ctx.Err() == nil && errors.Is(err, context.DeadlineExceeded):
-			// Quiet for IdleTimeout: make sure the peer is still there, since a
-			// connection dropped without a FIN or RST never reports an error.
 			if pingErr := n.ping(ctx); pingErr != nil {
 				return true, pingErr
 			}

@@ -10,11 +10,8 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/schedule"
 )
 
-// Schedule computes the ticks of a periodic job. Ticks must be deterministic:
-// every client computes the same instants, which is what lets the tick table
-// enforce exactly-once enqueueing across leaders.
+// Schedule computes the ticks of a periodic job.
 type Schedule interface {
-	// Next returns the first tick strictly after t.
 	Next(t time.Time) time.Time
 }
 
@@ -25,11 +22,7 @@ type cronSchedule struct {
 
 func (c *cronSchedule) Next(t time.Time) time.Time { return c.s.Next(t) }
 
-// Cron parses a cron expression: 5 fields, 6 fields with leading seconds,
-// or a descriptor such as @hourly or @daily. It is evaluated in the
-// PeriodicJob's TimeZone (UTC by default). Wall times skipped by a DST
-// spring-forward do not fire that day; wall times repeated by a fall-back
-// fire once per occurrence. Use UTC to avoid both.
+// Cron parses a cron expression.
 func Cron(expr string) (Schedule, error) {
 	s, err := schedule.ParseCron(expr, time.UTC)
 	if err != nil {
@@ -38,8 +31,7 @@ func Cron(expr string) (Schedule, error) {
 	return &cronSchedule{expr: expr, s: s}, nil
 }
 
-// MustCron is Cron that panics on an invalid expression, for package-level
-// declarations of periodic jobs.
+// MustCron is Cron that panics on an invalid expression.
 func MustCron(expr string) Schedule {
 	s, err := Cron(expr)
 	if err != nil {
@@ -58,30 +50,21 @@ func (e everySchedule) Next(t time.Time) time.Time {
 	return s.Next(t)
 }
 
-// Every returns a schedule ticking every d, aligned to multiples of d since
-// the Unix epoch so that all clients agree on the ticks. d must be positive
-// (checked by NewClient).
+// Every returns a schedule ticking every d.
 func Every(d time.Duration) Schedule { return everySchedule{d: d} }
 
-// PeriodicJob is a job enqueued on a schedule by the leader, exactly once
-// per tick across the cluster.
+// PeriodicJob is a job the leader enqueues on a schedule.
 type PeriodicJob struct {
-	// Name identifies the job in the tick table; it must be unique and stable.
-	Name string
-	// Schedule is Cron(...) or Every(...).
-	Schedule Schedule
-	// Args returns the job to insert for each tick.
-	Args func() (JobArgs, *InsertOpts)
-	// RunOnStart also enqueues the job when a client becomes leader.
+	Name       string
+	Schedule   Schedule
+	Args       func() (JobArgs, *InsertOpts)
 	RunOnStart bool
-	// CatchUp is how far back missed ticks are enqueued after a leader gap
-	// (oldest first); older ticks are skipped and counted.
+	// CatchUp is how far back missed ticks are enqueued.
 	CatchUp time.Duration
-	// TimeZone evaluates cron expressions; default UTC.
+	// TimeZone evaluates cron expressions. Default UTC.
 	TimeZone *time.Location
 }
 
-// resolvedSchedule applies the job's time zone to cron schedules.
 func (p *PeriodicJob) resolvedSchedule() (schedule.Schedule, error) {
 	switch s := p.Schedule.(type) {
 	case *cronSchedule:

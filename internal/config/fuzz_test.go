@@ -8,7 +8,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/config"
 )
 
-// FuzzParseDuration: never panics and never returns a negative duration.
 func FuzzParseDuration(f *testing.F) {
 	for _, s := range []string{"30s", "14d", "1d12h", "0d", "-1d", "d", "5m", "1d-5m", "999999999999d"} {
 		f.Add(s)

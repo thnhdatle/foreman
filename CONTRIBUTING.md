@@ -36,9 +36,6 @@ Every target prints a one-line PASS/FAIL summary.
 | `test` | unit tests, `-race`, goleak |
 | `test-integration` | integration tests (Testcontainers) |
 | `coverage` | merged coverage, thresholds |
-| `mutation` | mutation testing, threshold |
-| `acceptance` | acceptance criteria, report |
-| `bench` | benchmarks, writes `bench/RESULTS.md` |
 | `fuzz` | each fuzz target for `FUZZTIME` (default 30s) |
 | `examples` | runs examples, checks output |
 | `quickstart-test` | README quickstart in a temp clone |
@@ -56,12 +53,7 @@ Every target prints a one-line PASS/FAIL summary.
 make test                                                # unit, no dependencies
 make test-integration                                    # needs Docker running
 FOREMAN_TEST_PG_IMAGE=postgres:14 make test-integration  # another Postgres version
-make acceptance                                          # full acceptance suite
-make acceptance ONLY=FMN-03                              # a subset
-make acceptance CI=1                                     # CI thresholds
 ```
-
-Details: [acceptance suite](acceptance/README.md).
 
 ## Commit messages
 
@@ -81,7 +73,7 @@ One line only: no body, no footer, no trailers. Use
 Scopes: `client`, `insert`, `worker`, `job`, `state`, `backoff`, `schedule`, `cron`,
 `periodic`, `unique`, `fairness`, `concurrency`, `producer`, `executor`, `completer`,
 `elector`, `leader`, `rescue`, `cleaner`, `notifier`, `pgstore`, `migrate`, `admin`, `cli`,
-`foremantest`, `config`, `bench`, `acceptance`, `deps`, `docs`, `ci`, `build`.
+`foremantest`, `config`, `deps`, `docs`, `ci`, `build`.
 
 Good: `fix(rescue): requeue jobs whose lease expired during shutdown`. Bad: `fix bug`, `feat: Implemented the worker.`
 

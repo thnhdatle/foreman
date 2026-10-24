@@ -6,8 +6,6 @@ SHELL := bash
 .DEFAULT_GOAL := help
 
 GO ?= go
-# Release version shown in the acceptance report and the benchmark results.
-RELEASE ?= v0.1.0
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
@@ -15,13 +13,12 @@ LDFLAGS := -s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.bui
 COMPOSE := docker compose -f deploy/docker-compose.yml
 IMAGE ?= thnhdatle/foreman:dev
 FUZZTIME ?= 30s
-ONLY ?=
 
 export CGO_ENABLED ?= 0
 
 run = scripts/step.sh
 
-.PHONY: help bootstrap generate fmt lint test test-integration coverage mutation acceptance bench fuzz \
+.PHONY: help bootstrap generate fmt lint test test-integration coverage fuzz \
 	examples quickstart-test security build docker up down ci release-check release-dry
 
 help: ## list targets
@@ -47,15 +44,6 @@ test-integration: ## integration tests (Testcontainers), -count=1
 
 coverage: ## merged unit + integration coverage with thresholds (13.3)
 	@$(run) coverage scripts/coverage.sh
-
-mutation: ## mutation testing on the core packages (>= 60%)
-	@$(run) mutation scripts/mutation.sh
-
-acceptance: ## acceptance suite, writes acceptance/report.md; CI=1 for CI thresholds; ONLY=FMN-01,FMN-03
-	@$(run) acceptance $(GO) run ./acceptance/cmd/runner -version "$(RELEASE)" -only "$(ONLY)"
-
-bench: ## performance criteria + micro benchmarks; writes bench/RESULTS.md
-	@$(run) bench env RELEASE=$(RELEASE) scripts/bench.sh
 
 fuzz: ## each fuzz target for FUZZTIME
 	@$(run) fuzz scripts/fuzz.sh $(FUZZTIME)

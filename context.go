@@ -15,18 +15,13 @@ import (
 
 type clientKey struct{}
 
-// ClientFromContext returns the client running the job, inside Work (or nil).
+// ClientFromContext returns the client running the job, or nil outside Work.
 func ClientFromContext(ctx context.Context) *Client {
 	c, _ := ctx.Value(clientKey{}).(*Client)
 	return c
 }
 
-// CompleteTx marks job completed inside tx, so the job's effects and its
-// completion commit atomically. When Work then returns nil the
-// client writes no further update; if Work returns an error after CompleteTx
-// the normal retry path applies and the completion guard keeps the result
-// consistent with whatever tx did. It returns ErrStaleJob if the attempt is
-// no longer owned by this client.
+// CompleteTx marks the job completed inside tx.
 func CompleteTx[T JobArgs](ctx context.Context, tx pgx.Tx, job *Job[T]) error {
 	c := ClientFromContext(ctx)
 	attempt := executor.AttemptFromContext(ctx)
@@ -41,19 +36,16 @@ func CompleteTx[T JobArgs](ctx context.Context, tx pgx.Tx, job *Job[T]) error {
 	return nil
 }
 
-// Snooze returns an error that makes the job run again after d without
-// consuming an attempt.
+// Snooze returns an error that runs the job again after d without using an attempt.
 func Snooze(d time.Duration) error { return &job.SnoozeError{Duration: d} }
 
-// Discard returns an error that discards the job at once (dead letter),
-// whatever attempts remain; err is recorded.
+// Discard returns an error that discards the job.
 func Discard(err error) error { return &job.DiscardError{Err: err} }
 
-// Cancel returns an error that cancels the job; err is recorded.
+// Cancel returns an error that cancels the job.
 func Cancel(err error) error { return &job.CancelError{Err: err} }
 
-// Heartbeat refreshes the heartbeat of the running job now, for long jobs
-// between the automatic heartbeats. It is a no-op outside Work.
+// Heartbeat refreshes the heartbeat of the running job.
 func Heartbeat(ctx context.Context) {
 	c := ClientFromContext(ctx)
 	attempt := executor.AttemptFromContext(ctx)

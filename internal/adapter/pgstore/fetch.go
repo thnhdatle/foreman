@@ -13,11 +13,8 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// maxAttemptedBy bounds the attempted_by history kept per job.
 const maxAttemptedBy = 100
 
-// markRunning is the shared tail of every fetch: it transitions the picked
-// rows to running for client $cid at time $now.
 const markRunning = `
 UPDATE {{s}}.foreman_jobs j
 SET state = 'running', attempt = j.attempt + 1, attempted_at = @now, heartbeat_at = @now,
@@ -25,7 +22,6 @@ SET state = 'running', attempt = j.attempt + 1, attempted_at = @now, heartbeat_a
 FROM picked WHERE j.id = picked.id
 RETURNING `
 
-// fetchPlain takes the next jobs of a queue in fetch order.
 var fetchPlain = `
 WITH picked AS (
   SELECT id FROM {{s}}.foreman_jobs
@@ -36,16 +32,11 @@ WITH picked AS (
   FOR UPDATE SKIP LOCKED
 )` + markRunning + cols()
 
-// fetchByID takes one specific available job (Client.JobWork).
 var fetchByID = `
 WITH picked AS (
   SELECT id FROM {{s}}.foreman_jobs WHERE id = @id AND state = 'available' FOR UPDATE SKIP LOCKED
 )` + markRunning + cols()
 
-// fetchKeyed takes up to a quota of jobs per concurrency key. With a per-key
-// limit, the running count of each key is read in this statement, after the
-// previous statement of the transaction took the key's advisory lock, so
-// concurrent producers cannot exceed the limit.
 var fetchKeyed = `
 WITH quotas AS (
   SELECT * FROM unnest(@keys::text[], @quotas::int[]) AS q(key, quota) WHERE q.key <> ''
@@ -80,18 +71,10 @@ picked AS (
   ) n
 )` + markRunning + cols()
 
-// lockKeys takes the per-key advisory locks without waiting; keys locked by
-// another producer are skipped this round (they are being served). The lock
-// key is hashtextextended(queue || ':' || key, 0), prefixed
-// with "<schema>:" outside the public schema so installations sharing a
-// database do not contend.
 const lockKeys = `
 SELECT k FROM unnest(@keys::text[]) AS k
 WHERE pg_try_advisory_xact_lock(hashtextextended(@lock_prefix || @queue || ':' || k, 0))`
 
-// keyStats enumerates keys with available jobs with a loose index scan over
-// foreman_jobs_fairness_idx, plus the bucket of jobs without a key. Running
-// counts come from one scan of foreman_jobs_running_key_idx when requested.
 const keyStats = `
 WITH RECURSIVE keys AS (
   (SELECT concurrency_key AS key, priority, scheduled_at, id FROM {{s}}.foreman_jobs
@@ -117,7 +100,7 @@ UNION ALL
  WHERE queue = @queue AND state = 'available' AND concurrency_key IS NULL
  ORDER BY priority, scheduled_at, id LIMIT 1)`
 
-// Fetch implements job.Fetcher.
+// Fetch takes the next jobs of a queue and marks them running.
 func (s *Store) Fetch(ctx context.Context, p job.FetchParams) ([]*job.Row, error) {
 	var (
 		rows []*job.Row
@@ -149,9 +132,6 @@ func (s *Store) Fetch(ctx context.Context, p job.FetchParams) ([]*job.Row, error
 	return rows, nil
 }
 
-// FetchByID marks one available job running for clientID. It returns
-// job.ErrNotFound for unknown ids and an InvalidTransitionError when the job
-// is not available (or is locked by another fetch).
 func (s *Store) FetchByID(ctx context.Context, id int64, clientID string, now time.Time) (*job.Row, error) {
 	args := pgx.NamedArgs{"id": id, "now": now, "cid": clientID, "keep": maxAttemptedBy}
 	rows, err := s.query(ctx, s.pool, fetchByID, args)
@@ -227,7 +207,6 @@ func (s *Store) query(ctx context.Context, db DB, q string, args pgx.NamedArgs) 
 	return collectRows(r)
 }
 
-// KeyStats implements job.Fetcher.
 func (s *Store) KeyStats(ctx context.Context, queue string, limit int, withRunning bool) ([]job.KeyStat, error) {
 	args := pgx.NamedArgs{"queue": queue, "limit": limit, "with_running": withRunning}
 	r, err := s.pool.Query(ctx, s.sql(keyStats), args)
@@ -254,7 +233,6 @@ INSERT INTO {{s}}.foreman_queues AS q (name, created_at, updated_at) VALUES ($1,
 ON CONFLICT (name) DO UPDATE SET updated_at = greatest(q.updated_at, EXCLUDED.updated_at)
 RETURNING q.paused_at IS NOT NULL`
 
-// QueueHeartbeat implements job.Fetcher.
 func (s *Store) QueueHeartbeat(ctx context.Context, queue string, now time.Time) (bool, error) {
 	var paused bool
 	err := s.pool.QueryRow(ctx, s.sql(queueHeartbeat), queue, now).Scan(&paused)
@@ -263,7 +241,6 @@ func (s *Store) QueueHeartbeat(ctx context.Context, queue string, now time.Time)
 
 const servedQueues = `SELECT name FROM {{s}}.foreman_queues WHERE updated_at >= $1`
 
-// ServedQueues lists queues a producer reported since cutoff.
 func (s *Store) ServedQueues(ctx context.Context, cutoff time.Time) ([]string, error) {
 	r, err := s.pool.Query(ctx, s.sql(servedQueues), cutoff)
 	if err != nil {

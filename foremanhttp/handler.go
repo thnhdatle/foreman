@@ -19,7 +19,6 @@ import (
 	"github.com/thnhdatle/foreman"
 )
 
-// route is one endpoint; routes is the source for the OpenAPI drift test.
 type route struct {
 	method, path string
 }
@@ -36,9 +35,7 @@ var routes = []route{
 	{http.MethodGet, "/v1/leader"},
 }
 
-// Handler returns the admin JSON API for client. Mount it under any prefix
-// with http.StripPrefix. It has no authentication: the embedding
-// application must protect it (for example with its own middleware).
+// Handler returns the admin JSON API for client.
 func Handler(client *foreman.Client) http.Handler {
 	h := &handler{client: client}
 	mux := http.NewServeMux()
@@ -111,7 +108,6 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-// writeClientError maps Foreman errors to the error envelope (errors.md).
 func writeClientError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, foreman.ErrNotFound):
@@ -154,7 +150,6 @@ func (h *handler) listJobs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// multi splits repeated and comma-separated query values.
 func multi(vals []string) []string {
 	var out []string
 	for _, v := range vals {

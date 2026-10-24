@@ -10,14 +10,12 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// JobArgs is the payload of a job. Kind identifies the job type; exactly one
-// worker handles each kind. Args are stored as JSON.
+// JobArgs is the payload of a job.
 type JobArgs interface {
 	Kind() string
 }
 
-// JobArgsWithInsertOpts is implemented by args types that provide per-kind
-// insert defaults; explicit InsertOpts fields take precedence.
+// JobArgsWithInsertOpts is implemented by args types that provide insert defaults.
 type JobArgsWithInsertOpts interface {
 	JobArgs
 	InsertOpts() InsertOpts
@@ -39,14 +37,10 @@ const (
 
 // AttemptError records one failed attempt of a job.
 type AttemptError struct {
-	// At is when the attempt failed (client clock).
-	At time.Time `json:"at"`
-	// Attempt is the 1-based attempt number.
-	Attempt int `json:"attempt"`
-	// Error is the error message, or "panic: <value>".
-	Error string `json:"error"`
-	// Trace is the stack trace of a panic.
-	Trace string `json:"trace,omitempty"`
+	At      time.Time `json:"at"`
+	Attempt int       `json:"attempt"`
+	Error   string    `json:"error"`
+	Trace   string    `json:"trace,omitempty"`
 }
 
 // Job is a job with decoded, typed args, as passed to Worker.Work.
@@ -84,14 +78,10 @@ type JobRow struct {
 	Errors            []AttemptError
 	Tags              []string
 	Metadata          json.RawMessage
-	// UniqueKey is the SHA-256 of the canonical unique identity; nil when not unique.
-	UniqueKey []byte
-	// UniqueStates are the states in which the unique key is enforced.
-	UniqueStates []State
-	// ConcurrencyKey is empty when the job has none.
-	ConcurrencyKey string
-	// Timeout is the per-job timeout; zero uses the kind or client default.
-	Timeout time.Duration
+	UniqueKey         []byte
+	UniqueStates      []State
+	ConcurrencyKey    string
+	Timeout           time.Duration
 }
 
 // DecodeArgs decodes the args of row into T. It fails if row is of another kind.

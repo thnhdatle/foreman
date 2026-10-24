@@ -56,7 +56,6 @@ func (a *app) migrateCmd() *cobra.Command {
 	return cmd
 }
 
-// migrateRun loads the config, connects and runs fn with the schema option.
 func (a *app) migrateRun(fn func(ctx context.Context, opt migrate.Option) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		if err := a.load(cmd, true); err != nil {

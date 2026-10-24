@@ -9,8 +9,7 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/backoff"
 )
 
-// RetryPolicy decides when a failed job runs again. job.Attempt is the
-// attempt that just failed (1-based).
+// RetryPolicy decides when a failed job runs again.
 type RetryPolicy interface {
 	NextRetry(job JobRow, now time.Time) time.Time
 }
@@ -21,8 +20,7 @@ type RetryPolicyFunc func(job JobRow, now time.Time) time.Time
 // NextRetry calls f.
 func (f RetryPolicyFunc) NextRetry(job JobRow, now time.Time) time.Time { return f(job, now) }
 
-// ExponentialBackoff waits min(Cap, Base*2^(attempt-1)) with full jitter.
-// The zero value uses Base 1s and Cap 24h (the default policy).
+// ExponentialBackoff waits an exponentially growing, jittered delay.
 type ExponentialBackoff struct {
 	Base time.Duration
 	Cap  time.Duration
@@ -40,7 +38,7 @@ func (e ExponentialBackoff) NextRetry(job JobRow, now time.Time) time.Time {
 	return now.Add(p.Delay(job.Attempt))
 }
 
-// ConstantBackoff always waits Delay.
+// ConstantBackoff waits a fixed Delay.
 type ConstantBackoff struct {
 	Delay time.Duration
 }
@@ -51,15 +49,12 @@ func (c ConstantBackoff) NextRetry(_ JobRow, now time.Time) time.Time {
 }
 
 // ErrorHandler is notified of failed attempts and may override the outcome.
-// Returning nil keeps the default (retry with backoff, or discard when
-// attempts are exhausted).
 type ErrorHandler interface {
 	HandleError(ctx context.Context, job *JobRow, err error) *ErrorHandlerResult
 	HandlePanic(ctx context.Context, job *JobRow, panicVal any, trace string) *ErrorHandlerResult
 }
 
-// ErrorHandlerResult overrides the outcome of a failed attempt. The first
-// field set wins, in field order.
+// ErrorHandlerResult overrides the outcome of a failed attempt.
 type ErrorHandlerResult struct {
 	SetCancelled bool
 	SetDiscarded bool

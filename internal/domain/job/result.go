@@ -8,28 +8,22 @@ import (
 	"time"
 )
 
-// Outcome describes how one execution of Work ended.
+// Outcome describes how one execution of a job ended.
 type Outcome struct {
-	// Err is what Work returned (nil on success). For panics it is nil.
-	Err error
-	// Panicked is true when Work panicked; PanicValue and Trace describe it.
-	Panicked   bool
-	PanicValue any
-	Trace      string
-	// CancelRequested is true when an operator cancelled the job while it ran.
+	Err             error
+	Panicked        bool
+	PanicValue      any
+	Trace           string
 	CancelRequested bool
-	// Override is the decision of an error handler for errors and panics.
-	Override *Override
+	Override        *Override
 }
 
-// Override lets an error handler replace the default outcome of an error or panic.
 type Override struct {
 	SetCancelled bool
 	SetDiscarded bool
 	SnoozeFor    time.Duration
 }
 
-// Kind classifies an outcome for metrics and logs.
 func (o Outcome) Kind() string {
 	switch {
 	case o.CancelRequested:
@@ -54,16 +48,12 @@ func (o Outcome) Kind() string {
 	}
 }
 
-// IsHandlerCandidate reports whether an error handler should be consulted:
-// plain errors and panics, but not explicit Snooze, Discard or Cancel results.
 func (o Outcome) IsHandlerCandidate() bool {
 	k := o.Kind()
 	return k == "error" || k == "panic"
 }
 
-// MapResult converts the outcome of attempt row.Attempt into the completion
-// written to the database. retryAt is called only
-// when the job becomes retryable and returns its next run time.
+// MapResult converts the outcome of an attempt into a completion.
 func MapResult(row *Row, o Outcome, now time.Time, retryAt func() time.Time) Completion {
 	c := Completion{ID: row.ID, Attempt: row.Attempt, At: now, Kind: row.Kind, Queue: row.Queue}
 	failure := attemptError(row.Attempt, o, now)

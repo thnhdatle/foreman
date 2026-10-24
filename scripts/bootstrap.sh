@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # Checks tool versions, downloads modules, pulls compose images and sets the hooks path.
-# Installs nothing globally.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
@@ -31,7 +30,6 @@ check uv "brew install uv"
 check syft "fetched below into ~/.cache/rayld/foreman/tools when missing"
 check jq "brew install jq"
 
-# syft (SBOMs for release-dry) goes to the project cache, pinned and checksum-verified.
 syft_version=1.54.1
 tools="${HOME}/.cache/rayld/foreman/tools"
 if ! command -v syft >/dev/null 2>&1 && [ ! -x "${tools}/syft" ]; then

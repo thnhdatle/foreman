@@ -12,14 +12,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// DefaultLabelCap is the number of distinct user-derived label values (queue,
-// kind, periodic name) kept per metric before others map to "other".
 const DefaultLabelCap = 50
 
-// Other replaces label values beyond the cap.
 const Other = "other"
 
-// Metrics holds every Prometheus collector of a client.
+// Metrics holds the Prometheus collectors of a client.
 type Metrics struct {
 	Inserted        *prometheus.CounterVec
 	Completed       *prometheus.CounterVec
@@ -42,10 +39,7 @@ type Metrics struct {
 	names  *Capper
 }
 
-// New creates the collectors and registers them with reg. A nil reg keeps
-// them in a private registry. Collectors already registered by another
-// client in the same process are shared, so several clients may use one
-// registerer.
+// New creates the collectors and registers them with reg.
 func New(reg prometheus.Registerer) (*Metrics, error) {
 	if reg == nil {
 		reg = prometheus.NewRegistry()
@@ -136,35 +130,27 @@ func moduleVersion() string {
 	return "devel"
 }
 
-// Queue caps a queue label value.
 func (m *Metrics) Queue(q string) string { return m.queues.Value(q) }
 
-// Kind caps a kind label value.
 func (m *Metrics) Kind(k string) string { return m.kinds.Value(k) }
 
-// Name caps a periodic job name label value.
 func (m *Metrics) Name(n string) string { return m.names.Value(n) }
 
-// ObserveMaintenance records a run of a leader service.
 func (m *Metrics) ObserveMaintenance(service string, rows int, at time.Time) {
 	m.MaintenanceRun.WithLabelValues(service).Set(float64(at.UnixNano()) / 1e9)
 	m.MaintenanceRows.WithLabelValues(service).Add(float64(rows))
 }
 
-// Capper bounds the distinct values of a label: the first Max values are
-// kept, later ones become "other".
 type Capper struct {
 	max  int
-	mu   sync.Mutex // protects seen
+	mu   sync.Mutex
 	seen map[string]struct{}
 }
 
-// NewCapper returns a capper keeping up to maxValues values.
 func NewCapper(maxValues int) *Capper {
 	return &Capper{max: maxValues, seen: map[string]struct{}{}}
 }
 
-// Value returns v if it is (or can become) one of the kept values, else Other.
 func (c *Capper) Value(v string) string {
 	c.mu.Lock()
 	defer c.mu.Unlock()

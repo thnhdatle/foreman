@@ -17,15 +17,10 @@ import (
 )
 
 const (
-	// leaderTTL is the lease duration (default 15s).
-	leaderTTL = elector.DefaultTTL
-	// cancelGrace bounds the wait for jobs after their contexts were cancelled
-	// because the Stop deadline passed.
+	leaderTTL   = elector.DefaultTTL
 	cancelGrace = 5 * time.Second
 )
 
-// runState holds the goroutines of a started client. Every goroutine is
-// owned by one of the wait groups and stops when its context is cancelled.
 type runState struct {
 	c           *Client
 	completer   *completer.Completer
@@ -79,7 +74,7 @@ func (c *Client) newRunState() (*runState, error) {
 		r.producers[name] = p
 	}
 	if len(r.producers) == 0 {
-		return r, nil // producer-only: no fetching, no election, no listener
+		return r, nil
 	}
 	r.elector, err = elector.New(elector.Config{
 		ClientID: c.cfg.ID, Store: c.store, Clock: c.clock, Logger: c.logger, TTL: leaderTTL,
@@ -130,7 +125,6 @@ func (r *runState) start(ctx context.Context) {
 	goRun(&r.serviceWG, func() { _ = r.heartbeater.Run(serviceCtx) })
 	if r.notifier != nil {
 		goRun(&r.serviceWG, func() { _ = r.notifier.Run(serviceCtx) })
-		// After a (re)connect, cancel requests sent while disconnected are re-read.
 		goRun(&r.serviceWG, func() {
 			for {
 				select {
@@ -153,7 +147,6 @@ func (r *runState) start(ctx context.Context) {
 		defer r.watchWG.Done()
 		select {
 		case <-ctx.Done():
-			// Cancelling the Start context stops the client hard.
 			go func() { _ = r.c.stopRun(context.WithoutCancel(ctx), r) }()
 		case <-r.stopWatch:
 		}
@@ -174,8 +167,7 @@ func (r *runState) logErr(component string, err error) {
 	}
 }
 
-// shutdown proceeds in order: stop fetching, wait for running jobs (bounded by
-// ctx), cancel the rest, flush completions, resign leadership.
+// shutdown stops fetching, waits for running jobs, cancels the rest and resigns leadership.
 func (r *runState) shutdown(ctx context.Context, cancelJobs bool) (err error) {
 	r.stopOnce.Do(func() {
 		close(r.stopWatch)
@@ -218,8 +210,7 @@ func (r *runState) cancelAll() {
 	}
 }
 
-// crash simulates a process crash for tests (crash seam): producers
-// and leader services stop at once and the lease is abandoned.
+// crash simulates a process crash for tests.
 func (r *runState) crash() {
 	if r.elector != nil {
 		r.elector.Crash()
@@ -245,8 +236,6 @@ func (r *runState) wakeAll() {
 	}
 }
 
-// onConnect runs after the LISTEN connection is (re)established: wake-ups and
-// cancel requests sent while it was down were lost, so poll for them.
 func (r *runState) onConnect() {
 	r.wakeAll()
 	select {
@@ -306,7 +295,6 @@ func (r *runState) runningIDs() []int64 {
 	return ids
 }
 
-// leaderServices runs while this client holds the lease.
 func (r *runState) leaderServices(ctx context.Context) {
 	c := r.c
 	base := maintenance.Base{Store: c.store, Clock: c.clock, Logger: c.logger, Observe: c.metrics.ObserveMaintenance}
@@ -314,7 +302,7 @@ func (r *runState) leaderServices(ctx context.Context) {
 	for _, pj := range c.cfg.PeriodicJobs {
 		s, err := pj.resolvedSchedule()
 		if err != nil {
-			continue // validated by NewClient
+			continue
 		}
 		periodic = append(periodic, maintenance.PeriodicJob{
 			Name: pj.Name, Schedule: s, CatchUp: pj.CatchUp, RunOnStart: pj.RunOnStart, Build: c.periodicBuilder(pj),
@@ -341,7 +329,6 @@ func (r *runState) leaderServices(ctx context.Context) {
 	)
 }
 
-// rescueRetry uses the kind's retry policy when this client has the worker.
 func (c *Client) rescueRetry(row *job.Row, now time.Time) time.Time {
 	if w, ok := c.cfg.Workers.byKind[row.Kind]; ok && w.retry != nil {
 		return w.retry.NextRetry(*toJobRow(row), now)

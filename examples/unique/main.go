@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command unique inserts the same unique job twice; the second insert
-// returns the first job instead of creating a duplicate.
+// Command unique inserts the same unique job twice.
 package main
 
 import (
@@ -15,13 +14,11 @@ import (
 	"github.com/thnhdatle/foreman/examples/internal/exampledb"
 )
 
-// SyncArgs identify an account to synchronise.
 type SyncArgs struct {
 	AccountID int64  `json:"account_id"`
 	Reason    string `json:"reason"`
 }
 
-// Kind identifies the job type.
 func (SyncArgs) Kind() string { return "sync_account" }
 
 func main() {
@@ -41,7 +38,6 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// One sync per account per hour, whatever the reason.
 	opts := &foreman.InsertOpts{UniqueOpts: &foreman.UniqueOpts{
 		ByArgFields: []string{"account_id"},
 		ByPeriod:    time.Hour,

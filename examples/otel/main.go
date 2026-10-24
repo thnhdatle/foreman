@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command otel traces job work with OpenTelemetry. It records spans in
-// memory and prints them; in production pass a TracerProvider with an OTLP
-// exporter (configured by the standard OTEL_EXPORTER_OTLP_* variables).
+// Command otel traces job work with OpenTelemetry.
 package main
 
 import (
@@ -19,12 +17,10 @@ import (
 	"github.com/thnhdatle/foreman/examples/internal/exampledb"
 )
 
-// ResizeArgs describe an image resize.
 type ResizeArgs struct {
 	Image string `json:"image"`
 }
 
-// Kind identifies the job type.
 func (ResizeArgs) Kind() string { return "resize" }
 
 func main() {

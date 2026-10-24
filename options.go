@@ -14,14 +14,13 @@ const (
 	DefaultMaxAttempts = 25
 )
 
-// InsertOpts are per-job options. Zero fields fall back to the args type's
-// InsertOpts(), then to the worker options, then to the defaults.
+// InsertOpts are per-job options.
 type InsertOpts struct {
 	// Queue defaults to "default".
 	Queue string
-	// Priority is 1 (highest) to 4 (lowest); default 2.
+	// Priority is 1 to 4, where 1 runs first. Default 2.
 	Priority int
-	// ScheduledAt in the future inserts the job as scheduled.
+	// ScheduledAt in the future schedules the job.
 	ScheduledAt time.Time
 	// MaxAttempts defaults to 25.
 	MaxAttempts int
@@ -30,27 +29,17 @@ type InsertOpts struct {
 	Metadata json.RawMessage
 	// ConcurrencyKey groups jobs for per-key limits and fairness (for example a tenant id).
 	ConcurrencyKey string
-	// UniqueOpts makes the job unique; nil means not unique.
-	UniqueOpts *UniqueOpts
-	// Timeout overrides the kind and client job timeout.
-	Timeout time.Duration
+	UniqueOpts     *UniqueOpts
+	Timeout        time.Duration
 }
 
-// UniqueOpts selects the identity of a unique job: its kind plus, optionally,
-// its args (all, or selected top-level fields), its queue and a time period.
-// While a job with the same identity exists in one of ByState, inserting
-// another returns the existing job with UniqueSkippedAsDuplicate set.
+// UniqueOpts selects the identity of a unique job.
 type UniqueOpts struct {
-	// ByArgs includes all args; mutually exclusive with ByArgFields.
-	ByArgs bool
-	// ByArgFields includes only these top-level args fields.
+	ByArgs      bool
 	ByArgFields []string
-	// ByPeriod includes the start of the current period (whole seconds).
-	ByPeriod time.Duration
-	// ByQueue includes the queue.
-	ByQueue bool
-	// ByState defaults to available, scheduled, running, retryable and
-	// completed; it must include the first four.
+	ByPeriod    time.Duration
+	ByQueue     bool
+	// ByState defaults to available, scheduled, running, retryable and completed.
 	ByState []State
 }
 
@@ -62,19 +51,17 @@ type InsertParams struct {
 
 // InsertResult is the outcome of inserting one job.
 type InsertResult struct {
-	// Job is the inserted job, or the existing job for a skipped duplicate.
-	Job *JobRow
-	// UniqueSkippedAsDuplicate is true when a unique job already existed.
+	Job                      *JobRow
 	UniqueSkippedAsDuplicate bool
 }
 
 // QueueConfig configures one queue served by a client.
 type QueueConfig struct {
-	// MaxWorkers is the number of jobs run at once; default 10.
+	// MaxWorkers is how many jobs run at once. Default 10.
 	MaxWorkers int
-	// FetchInterval is the polling fallback; default 1s.
+	// FetchInterval is the polling interval. Default 1s.
 	FetchInterval time.Duration
-	// PerKeyLimit caps running jobs per concurrency key across the cluster; 0 = no limit.
+	// PerKeyLimit caps running jobs per concurrency key. 0 means no limit.
 	PerKeyLimit int
 	// Fairness alternates between concurrency keys when jobs are backlogged.
 	Fairness bool

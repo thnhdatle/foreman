@@ -173,8 +173,6 @@ func TestFetch_PerKeyLimitCountsRunning(t *testing.T) {
 	assert.Len(t, fetch(t, e, job.FetchParams{Queue: "q", Keyed: true, PerKeyLimit: 3, Quotas: []job.KeyQuota{{Key: "a", Quota: 5}}}), 1)
 }
 
-// Property against Postgres: concurrent producers fetching
-// with a per-key limit never have more than the limit running per key.
 func TestFetch_ConcurrentProducersNeverExceedPerKeyLimit(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -188,7 +186,7 @@ func TestFetch_ConcurrentProducersNeverExceedPerKeyLimit(t *testing.T) {
 	var wg sync.WaitGroup
 	stop := make(chan struct{})
 	wg.Add(1)
-	go func() { // sampler
+	go func() {
 		defer wg.Done()
 		for {
 			select {
@@ -283,7 +281,6 @@ func TestFetch_SkipLockedAcrossConcurrentFetchers(t *testing.T) {
 	}
 }
 
-// The fetch query uses the fetch index at 1M rows.
 func TestFetch_PlanUsesFetchIndexAt1M(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

@@ -30,10 +30,10 @@ type fakeWriter struct {
 	mu      sync.Mutex
 	calls   [][]job.Completion
 	clients []string
-	fail    int            // number of upcoming calls that fail
-	stale   map[int64]bool // ids rejected by the guard
-	dead    bool           // fail forever
-	block   chan struct{}  // when non-nil, calls wait for it
+	fail    int
+	stale   map[int64]bool
+	dead    bool
+	block   chan struct{}
 }
 
 func (f *fakeWriter) Complete(ctx context.Context, clientID string, cs []job.Completion) ([]int64, error) {
@@ -132,7 +132,6 @@ func start(t *testing.T, store *fakeWriter, mutate func(*completer.Config)) *har
 	return h
 }
 
-// waitBlocked waits until Run is parked on the fake clock.
 func (h *harness) waitBlocked(t *testing.T) {
 	t.Helper()
 	testutil.Eventually(t, func() bool { return h.fc.Waiters() > 0 }, 2*time.Second)
@@ -199,7 +198,7 @@ func TestCompleter_RetriesWithoutLosingResults(t *testing.T) {
 		h.waitBlocked(t)
 		h.fc.Advance(time.Second)
 		if i == 1 {
-			h.c.Add(comp(3)) // arrives while the database is down
+			h.c.Add(comp(3))
 		}
 	}
 	testutil.Eventually(t, func() bool { return len(store.written()) == 3 }, 2*time.Second)
@@ -212,14 +211,13 @@ func TestCompleter_RetryBackoffGrowsAndIsCapped(t *testing.T) {
 	h := start(t, store, nil)
 	h.waitBlocked(t)
 	h.c.Add(comp(1))
-	h.fc.Advance(50 * time.Millisecond) // first attempt fails
-	// With Rand = 0 the delay is half of min(50ms << failures, 1s): 50ms, 100ms, 200ms, 400ms, 500ms, 500ms.
+	h.fc.Advance(50 * time.Millisecond)
 	for _, want := range []time.Duration{50, 100, 200, 400, 500, 500} {
 		h.waitBlocked(t)
 		h.fc.Advance(want*time.Millisecond - time.Millisecond)
 		h.waitBlocked(t)
 		assert.Equal(t, 1, h.c.Len())
-		h.fc.Advance(time.Millisecond) // attempt fires exactly at the delay
+		h.fc.Advance(time.Millisecond)
 	}
 	store.mu.Lock()
 	store.dead = false
@@ -240,7 +238,7 @@ func TestCompleter_FullAndDrained(t *testing.T) {
 	assert.False(t, h.c.Full())
 	h.c.Add(comp(5))
 	assert.True(t, h.c.Full(), "full at BufferSize")
-	h.c.Add(comp(6)) // still accepted: never dropped
+	h.c.Add(comp(6))
 	assert.Equal(t, 6, h.c.Len())
 	store.mu.Lock()
 	store.dead = false
@@ -280,7 +278,6 @@ func TestCompleter_FinalFlushOnShutdown(t *testing.T) {
 	h.waitBlocked(t)
 	h.c.Add(comp(1))
 	h.cancel()
-	// The final flush retries after a failure, still driven by the clock.
 	var err error
 	testutil.Eventually(t, func() bool {
 		h.fc.Advance(time.Second)
@@ -292,7 +289,7 @@ func TestCompleter_FinalFlushOnShutdown(t *testing.T) {
 		}
 	}, 2*time.Second)
 	require.NoError(t, err)
-	h.done <- nil // for cleanup
+	h.done <- nil
 	assert.Equal(t, []int64{1}, store.written())
 }
 

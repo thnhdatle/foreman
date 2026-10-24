@@ -18,8 +18,7 @@ import (
 	"github.com/thnhdatle/foreman/internal/platform/clock"
 )
 
-// Clock is the time source of a client. Every time Foreman writes or
-// compares in SQL comes from it. foremantest provides a fake.
+// Clock is the time source of a client.
 type Clock = clock.Clock
 
 // Ticker is a ticker created by a Clock.
@@ -40,66 +39,48 @@ const (
 	DefaultSchema                = "public"
 )
 
-// Config configures a client. The zero value of every field selects its
-// default; durations that can be switched off use a negative value for "off"
-// (Go zero values cannot mean both "default" and "off").
+// Config configures a client. Zero fields select their defaults.
 type Config struct {
-	// Queues served by this client. With no queues the client is
-	// producer-only: it inserts and administers but fetches nothing and
-	// takes no part in leader election.
-	Queues map[string]QueueConfig
-	// Workers registered for the kinds this client runs.
-	Workers *Workers
-	// PeriodicJobs are enqueued by the leader on their schedule.
+	// Queues served by this client. With none it is producer-only.
+	Queues       map[string]QueueConfig
+	Workers      *Workers
 	PeriodicJobs []*PeriodicJob
-	// Logger defaults to slog.Default().
-	Logger *slog.Logger
-	// Clock defaults to the wall clock.
-	Clock Clock
-	// ID identifies the client in attempted_by and the leader lease;
-	// default hostname-pid-random.
+	Logger       *slog.Logger
+	Clock        Clock
+	// ID identifies the client. Default hostname-pid-random.
 	ID string
-	// Schema holding the Foreman tables; default "public".
+	// Schema holding the Foreman tables. Default public.
 	Schema string
-	// JobTimeout is the default timeout of Work; 0 = none.
+	// JobTimeout is the default timeout of Work. 0 means none.
 	JobTimeout time.Duration
-	// RescueStuckJobsAfter returns running jobs without a heartbeat for this
-	// long to retryable; default 1h, at least 2 x HeartbeatInterval.
+	// RescueStuckJobsAfter is how long a running job may go without a heartbeat. Default 1h.
 	RescueStuckJobsAfter time.Duration
-	// HeartbeatInterval between heartbeats of running jobs; default 30s.
+	// HeartbeatInterval is the time between heartbeats. Default 30s.
 	HeartbeatInterval time.Duration
-	// RetryPolicy defaults to ExponentialBackoff{} (1s base, 24h cap, full jitter).
+	// RetryPolicy defaults to ExponentialBackoff{}.
 	RetryPolicy RetryPolicy
-	// CompletedJobRetention defaults to 24h; negative keeps completed jobs forever.
+	// CompletedJobRetention defaults to 24h. Negative keeps jobs forever.
 	CompletedJobRetention time.Duration
-	// CancelledJobRetention defaults to 7 days; negative keeps them forever.
+	// CancelledJobRetention defaults to 7 days. Negative keeps jobs forever.
 	CancelledJobRetention time.Duration
-	// DiscardedJobRetention defaults to 7 days; negative keeps them forever.
+	// DiscardedJobRetention defaults to 7 days. Negative keeps jobs forever.
 	DiscardedJobRetention time.Duration
-	// ReindexInterval rebuilds the queue indexes concurrently; default 24h,
-	// negative disables it.
+	// ReindexInterval defaults to 24h. Negative disables it.
 	ReindexInterval time.Duration
-	// CleanerInterval between runs of the cleaner; default 30s.
+	// CleanerInterval defaults to 30s.
 	CleanerInterval time.Duration
-	// ErrorHandler may override the outcome of failed attempts.
-	ErrorHandler ErrorHandler
-	// Middleware wraps inserts and work, outermost first.
-	Middleware []Middleware
-	// PollOnly disables LISTEN/NOTIFY (for PgBouncer transaction pooling):
-	// wake-ups, cancels and pauses then propagate by polling every FetchInterval.
+	ErrorHandler    ErrorHandler
+	Middleware      []Middleware
+	// PollOnly disables LISTEN/NOTIFY and relies on polling.
 	PollOnly bool
-	// MaxArgsBytes bounds the JSON size of args; default 1 MiB.
-	MaxArgsBytes int
-	// TracerProvider enables OpenTelemetry spans "foreman.work <kind>".
+	// MaxArgsBytes bounds the JSON size of args. Default 1 MiB.
+	MaxArgsBytes   int
 	TracerProvider trace.TracerProvider
-	// Registerer receives the Prometheus metrics; nil keeps them private.
-	Registerer prometheus.Registerer
+	Registerer     prometheus.Registerer
 }
 
 var nameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_.:\-]{0,127}$`)
 
-// normalized returns a copy of c with defaults applied, or every validation
-// problem joined under ErrInvalidConfig.
 func (c Config) normalized() (Config, error) {
 	var errs []error
 	if c.Workers == nil {
@@ -189,7 +170,6 @@ func defaultClientID() string {
 	return fmt.Sprintf("%s-%d-%s", host, os.Getpid(), hex.EncodeToString(b))
 }
 
-// minFetchInterval returns the smallest fetch interval among queues (default 1s).
 func (c Config) minFetchInterval() time.Duration {
 	m := DefaultFetchInterval
 	for _, q := range c.Queues {

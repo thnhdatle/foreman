@@ -13,18 +13,15 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// Listener holds a dedicated connection for LISTEN; it implements job.Listener.
-// The connection is taken out of the pool for its whole life and closed on
-// Close, so a broken connection is never returned to the pool.
+// Listener holds a dedicated connection for LISTEN.
 type Listener struct {
 	pool *pgxpool.Pool
-	conn *pgx.Conn // owned by the notifier goroutine between Connect and Close
+	conn *pgx.Conn
 }
 
-// NewListener returns a listener on pool.
+// NewListener returns a listener on the pool.
 func (s *Store) NewListener() *Listener { return &Listener{pool: s.pool} }
 
-// Connect acquires and detaches a connection from the pool.
 func (l *Listener) Connect(ctx context.Context) error {
 	c, err := l.pool.Acquire(ctx)
 	if err != nil {
@@ -34,7 +31,6 @@ func (l *Listener) Connect(ctx context.Context) error {
 	return nil
 }
 
-// Listen subscribes to channel.
 func (l *Listener) Listen(ctx context.Context, channel string) error {
 	if l.conn == nil {
 		return errors.New("pgstore: listener not connected")
@@ -45,7 +41,6 @@ func (l *Listener) Listen(ctx context.Context, channel string) error {
 	return nil
 }
 
-// WaitForNotification blocks until a notification arrives or ctx is done.
 func (l *Listener) WaitForNotification(ctx context.Context) (job.Notification, error) {
 	if l.conn == nil {
 		return job.Notification{}, errors.New("pgstore: listener not connected")
@@ -57,7 +52,6 @@ func (l *Listener) WaitForNotification(ctx context.Context) (job.Notification, e
 	return job.Notification{Channel: n.Channel, Payload: n.Payload}, nil
 }
 
-// Ping runs an empty statement on the connection.
 func (l *Listener) Ping(ctx context.Context) error {
 	if l.conn == nil {
 		return errors.New("pgstore: listener not connected")
@@ -68,7 +62,6 @@ func (l *Listener) Ping(ctx context.Context) error {
 	return nil
 }
 
-// Close closes the connection.
 func (l *Listener) Close(ctx context.Context) error {
 	if l.conn == nil {
 		return nil

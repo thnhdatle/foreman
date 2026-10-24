@@ -27,7 +27,7 @@ func TestExponential_Ceiling(t *testing.T) {
 		{3, 4 * time.Second},
 		{10, 512 * time.Second},
 		{17, 65536 * time.Second},
-		{18, 24 * time.Hour}, // 131072s > 86400s
+		{18, 24 * time.Hour},
 		{40, 24 * time.Hour},
 		{62, 24 * time.Hour},
 		{63, 24 * time.Hour},
@@ -58,11 +58,11 @@ func TestExponential_DelayUsesFullJitter(t *testing.T) {
 	assert.Equal(t, time.Duration(0), e.Delay(3))
 	e.Rand = func() float64 { return 0.999 }
 	assert.Equal(t, time.Duration(0.999*float64(4*time.Second)), e.Delay(3))
-	e.Rand = func() float64 { return 1.5 } // out-of-range sources are clamped to 0
+	e.Rand = func() float64 { return 1.5 }
 	assert.Equal(t, time.Duration(0), e.Delay(3))
 	e.Rand = func() float64 { return -0.1 }
 	assert.Equal(t, time.Duration(0), e.Delay(3))
-	d := backoff.NewExponential().Delay(1) // default random source
+	d := backoff.NewExponential().Delay(1)
 	assert.GreaterOrEqual(t, d, time.Duration(0))
 	assert.Less(t, d, time.Second)
 }
@@ -76,8 +76,6 @@ func TestConstantAndFunc(t *testing.T) {
 	assert.Equal(t, time.Duration(0), f.Delay(-1))
 }
 
-// Property: never negative, never exceeds cap, non-decreasing in
-// expectation (the expectation of full jitter is ceiling/2).
 func TestExponential_Property_BoundsAndMonotoneExpectation(t *testing.T) {
 	t.Parallel()
 	rapid.Check(t, func(rt *rapid.T) {

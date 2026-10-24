@@ -4,7 +4,6 @@ package foreman
 
 import "testing"
 
-// FuzzDecodeCursor: list cursors from clients never panic and round-trip.
 func FuzzDecodeCursor(f *testing.F) {
 	for _, s := range []string{"", encodeCursor(1), encodeCursor(9007199254740993), "aWQ6", "!!", "aWQ6LTE"} {
 		f.Add(s)

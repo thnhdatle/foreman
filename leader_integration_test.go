@@ -19,8 +19,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/testutil"
 )
 
-// step advances the shared fake clock by d in 1s increments, letting the
-// clients' goroutines run between increments.
 func step(t *testing.T, fc *clock.Fake, d time.Duration, until func() bool) time.Duration {
 	t.Helper()
 	elapsed := time.Duration(0)
@@ -30,7 +28,6 @@ func step(t *testing.T, fc *clock.Fake, d time.Duration, until func() bool) time
 		}
 		fc.Advance(time.Second)
 		elapsed += time.Second
-		// Give goroutines woken by the advance a moment of real time.
 		deadline := time.Now().Add(20 * time.Millisecond)
 		testutil.Eventually(t, func() bool { return time.Now().After(deadline) }, time.Second)
 	}
@@ -68,7 +65,7 @@ func TestLeader_FailoverWithinTTLPlusRenewInterval(t *testing.T) {
 	assert.Equal(t, 1, n, "exactly one leader")
 
 	old.mu.Lock()
-	old.run.crash() // leader dies without resigning
+	old.run.crash()
 	old.mu.Unlock()
 	assert.False(t, old.IsLeader())
 	elapsed := step(t, fc, time.Minute, func() bool {
@@ -104,7 +101,6 @@ func TestLeader_PeriodicRescueAndMetrics(t *testing.T) {
 	})
 	testutil.Eventually(t, c.IsLeader, 10*time.Second)
 
-	// A job left running by a client that died: no heartbeat for > 10s.
 	stale := start.Add(-time.Hour)
 	res, err := c.Insert(ctx, countArgs{N: 9}, &InsertOpts{Queue: "orphan"})
 	require.NoError(t, err)

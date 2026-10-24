@@ -25,7 +25,7 @@ func ExampleWorkJob() {
 func ExampleWorkInline() {
 	var (
 		t      *testing.T
-		client *foreman.Client // with a worker registered for mailArgs
+		client *foreman.Client
 	)
 	row := foremantest.WorkInline(context.Background(), t, client, mailArgs{To: "a@example.com"}, nil)
 	fmt.Println(row.State)
@@ -36,7 +36,6 @@ func ExampleRequireInserted() {
 		t      *testing.T
 		client *foreman.Client
 	)
-	// ... call the code under test, which enqueues a mail job ...
 	row := foremantest.RequireInserted(context.Background(), t, client, mailArgs{To: "a@example.com"})
 	fmt.Println(row.Queue)
 }
@@ -51,7 +50,6 @@ func ExampleRequireNotInserted() {
 
 func ExampleNewClock() {
 	clk := foremantest.NewClock(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
-	// foreman.NewClient(pool, foreman.Config{Clock: clk, ...})
 	clk.Advance(90 * time.Minute)
 	fmt.Println(clk.Now())
 	// Output: 2026-01-01 01:30:00 +0000 UTC

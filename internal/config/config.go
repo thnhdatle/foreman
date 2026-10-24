@@ -17,40 +17,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// EnvPrefix prefixes every environment variable.
 const EnvPrefix = "FOREMAN_"
 
-// ErrInvalid wraps every validation problem; the CLI exits with code 2.
 var ErrInvalid = errors.New("config: invalid")
 
-// Config is the configuration of the foreman CLI. The database URL is a
-// secret: it comes from FOREMAN_DATABASE_URL, --database-url, or the file
-// named by database_url_file, never from the config file itself.
+// Config is the configuration of the foreman CLI.
 type Config struct {
-	// DatabaseURL is the Postgres connection string (flag or env only).
-	DatabaseURL string `yaml:"-"`
-	// DatabaseURLFile names a file holding the connection string.
-	DatabaseURLFile string `yaml:"database_url_file"`
-	// Schema holding the Foreman tables.
-	Schema string `yaml:"schema"`
-	// Output is text or json.
-	Output string `yaml:"output"`
-	// Timeout bounds each command.
-	Timeout Duration `yaml:"timeout"`
-	Log     Log      `yaml:"log"`
+	DatabaseURL     string   `yaml:"-"`
+	DatabaseURLFile string   `yaml:"database_url_file"`
+	Schema          string   `yaml:"schema"`
+	Output          string   `yaml:"output"`
+	Timeout         Duration `yaml:"timeout"`
+	Log             Log      `yaml:"log"`
 }
 
-// Log configures CLI logging.
 type Log struct {
-	// Level is debug, info, warn or error.
-	Level string `yaml:"level"`
-	// Format is json or text.
+	Level  string `yaml:"level"`
 	Format string `yaml:"format"`
 }
 
 const formatText = "text"
 
-// Default returns the defaults.
 func Default() Config {
 	return Config{
 		Schema: "public", Output: formatText, Timeout: Duration(30 * time.Second),
@@ -58,9 +45,7 @@ func Default() Config {
 	}
 }
 
-// Load builds the configuration: defaults, then the YAML file (path from
-// --config or FOREMAN_CONFIG), then environment variables. Flags are applied
-// by the caller afterwards with Apply. Validation is a separate step.
+// Load builds the configuration from defaults, the YAML file and environment variables.
 func Load(path string, getenv func(string) string) (Config, error) {
 	cfg := Default()
 	if path == "" {
@@ -99,7 +84,6 @@ func Load(path string, getenv func(string) string) (Config, error) {
 	return cfg, nil
 }
 
-// ResolveSecrets reads DatabaseURLFile when DatabaseURL is empty.
 func (c *Config) ResolveSecrets() error {
 	if c.DatabaseURL != "" || c.DatabaseURLFile == "" {
 		return nil
@@ -112,7 +96,7 @@ func (c *Config) ResolveSecrets() error {
 	return nil
 }
 
-// Validate reports every problem at once.
+// Validate reports every configuration problem at once.
 func (c Config) Validate(needDatabase bool) error {
 	var errs []error
 	if needDatabase && c.DatabaseURL == "" {
@@ -147,8 +131,6 @@ func (c Config) Validate(needDatabase bool) error {
 	return fmt.Errorf("%w: %w", ErrInvalid, errors.Join(errs...))
 }
 
-// Redacted returns the configuration as YAML with the password of the
-// database URL replaced by "redacted".
 func (c Config) Redacted() (string, error) {
 	type printable struct {
 		DatabaseURL string `yaml:"database_url,omitempty"`
@@ -161,13 +143,8 @@ func (c Config) Redacted() (string, error) {
 	return string(data), nil
 }
 
-// kvPassword matches the password setting of a keyword/value connection
-// string: an unquoted value runs to the next space, a quoted one to the
-// closing quote, with backslash escapes.
 var kvPassword = regexp.MustCompile(`(?i)(\bpassword\s*=\s*)('(?:[^'\\]|\\.)*'|\S*)`)
 
-// RedactURL hides the password of a connection string, given either as a
-// postgres:// URL or in keyword/value form ("host=db password=secret").
 func RedactURL(raw string) string {
 	if raw == "" {
 		return ""
@@ -190,11 +167,8 @@ func RedactURL(raw string) string {
 	return u.String()
 }
 
-// Duration is a time.Duration written as a Go duration string with an
-// optional d (24h) suffix, for example "30s" or "14d".
 type Duration time.Duration
 
-// UnmarshalYAML parses a duration string.
 func (d *Duration) UnmarshalYAML(n *yaml.Node) error {
 	v, err := ParseDuration(n.Value)
 	if err != nil {
@@ -204,14 +178,10 @@ func (d *Duration) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-// Std returns the time.Duration.
 func (d Duration) Std() time.Duration { return time.Duration(d) }
 
-// MarshalYAML writes the duration string.
 func (d Duration) MarshalYAML() (any, error) { return time.Duration(d).String(), nil }
 
-// ParseDuration parses Go duration strings plus whole days with a d suffix
-// ("14d"), optionally followed by a Go duration ("1d12h").
 func ParseDuration(s string) (time.Duration, error) {
 	s = strings.TrimSpace(s)
 	i := strings.IndexByte(s, 'd')

@@ -15,7 +15,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/platform/clock"
 )
 
-// Defaults.
 const (
 	DefaultBatchSize     = 100
 	DefaultFlushInterval = 50 * time.Millisecond
@@ -25,47 +24,33 @@ const (
 	DefaultCallTimeout   = 30 * time.Second
 )
 
-// Config configures a Completer.
 type Config struct {
-	ClientID string
-	Store    job.CompletionWriter
-	Clock    clock.Clock
-	Logger   *slog.Logger
-	// BatchSize is the maximum number of results per statement.
-	BatchSize int
-	// FlushInterval is the longest a result waits before being written.
+	ClientID      string
+	Store         job.CompletionWriter
+	Clock         clock.Clock
+	Logger        *slog.Logger
+	BatchSize     int
 	FlushInterval time.Duration
-	// BufferSize is the number of pending results at which Full reports true.
-	BufferSize int
-	// MaxRetryDelay caps the backoff between failed writes.
+	BufferSize    int
 	MaxRetryDelay time.Duration
-	// FlushTimeout bounds the final flush on shutdown.
-	FlushTimeout time.Duration
-	// CallTimeout bounds one write.
-	CallTimeout time.Duration
-	// OnApplied receives the completions that passed the guard and the number rejected as stale.
-	OnApplied func(applied []job.Completion, stale int)
-	// OnDrained is called when the buffer stops being full.
-	OnDrained func()
-	// Rand returns a float in [0, 1) for retry jitter; nil uses math/rand/v2.
-	Rand func() float64
+	FlushTimeout  time.Duration
+	CallTimeout   time.Duration
+	OnApplied     func(applied []job.Completion, stale int)
+	OnDrained     func()
+	Rand          func() float64
 }
 
-// Completer batches job state updates (by size or interval) into single
-// statements. Results are never dropped: on a database error they stay in
-// memory and the write is retried with jittered exponential backoff.
-// The buffer is unbounded in memory but producers stop fetching
-// while Full reports true, which bounds it to BufferSize plus running jobs.
+// Completer batches job completions into single statements and retries them on database errors.
 type Completer struct {
 	cfg  Config
 	wake chan struct{}
 
-	mu      sync.Mutex // protects pending and full
+	mu      sync.Mutex
 	pending []job.Completion
 	full    bool
 }
 
-// New returns a Completer; ClientID, Store and Clock are required.
+// New validates cfg and applies defaults.
 func New(cfg Config) (*Completer, error) {
 	if cfg.ClientID == "" || cfg.Store == nil || cfg.Clock == nil {
 		return nil, errors.New("completer: ClientID, Store and Clock are required")
@@ -91,7 +76,7 @@ func setDefault[T int | time.Duration](v *T, def T) {
 	}
 }
 
-// Add queues one result. It never blocks and never drops.
+// Add queues one completion for the next batch.
 func (c *Completer) Add(comp job.Completion) {
 	c.mu.Lock()
 	c.pending = append(c.pending, comp)
@@ -105,14 +90,12 @@ func (c *Completer) Add(comp job.Completion) {
 	}
 }
 
-// Full reports whether producers must stop fetching until the buffer drains.
 func (c *Completer) Full() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.full
 }
 
-// Len returns the number of results waiting to be written.
 func (c *Completer) Len() int {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -126,9 +109,7 @@ func (c *Completer) signal() {
 	}
 }
 
-// Run writes results until ctx is cancelled, then performs a final flush
-// bounded by FlushTimeout. It returns an error only if results remain
-// unwritten after the final flush; those jobs stay running and are rescued.
+// Run writes batches until ctx is cancelled, then flushes what is left.
 func (c *Completer) Run(ctx context.Context) error {
 	failures := 0
 	for {
@@ -141,7 +122,7 @@ func (c *Completer) Run(ctx context.Context) error {
 			return c.finalFlush(ctx)
 		case <-c.wake:
 			if failures > 0 {
-				continue // keep backing off; new results join the next attempt
+				continue
 			}
 		case <-c.cfg.Clock.After(wait):
 		}
@@ -160,11 +141,9 @@ func (c *Completer) retryDelay(failures int) time.Duration {
 	if d <= 0 || d > c.cfg.MaxRetryDelay {
 		d = c.cfg.MaxRetryDelay
 	}
-	// Equal jitter keeps a floor so a dead database is not hammered.
 	return d/2 + time.Duration(c.cfg.Rand()*float64(d/2))
 }
 
-// flush writes batches until the buffer is empty or a write fails.
 func (c *Completer) flush(ctx context.Context) error {
 	for {
 		c.mu.Lock()

@@ -18,7 +18,7 @@ export FOREMAN_DATABASE_URL="${FOREMAN_DATABASE_URL:-postgres://foreman:foreman@
 status=0
 for dir in examples/*/; do
   name=$(basename "$dir")
-  [ "$name" = internal ] && continue # shared helpers, not an example
+  [ "$name" = internal ] && continue
   [ -f "${dir}expected_output.txt" ] || { echo "example ${name}: missing expected_output.txt" >&2; status=1; continue; }
   out=$(mktemp)
   if [ -x "${dir}run.sh" ]; then

@@ -11,10 +11,7 @@ import (
 	"time"
 )
 
-// Worker handles jobs of one kind. Work is called with the job context: it
-// is cancelled on timeout, on JobCancel, and on StopAndCancel. Return nil on
-// success, an error to retry with backoff, or the result of Snooze, Discard
-// or Cancel. Execution is at least once (a job whose worker dies is rescued and runs again): make Work idempotent.
+// Worker handles jobs of one kind.
 type Worker[T JobArgs] interface {
 	Work(ctx context.Context, job *Job[T]) error
 }
@@ -47,19 +44,16 @@ func (w *Workers) Kinds() []string { return slices.Sorted(maps.Keys(w.byKind)) }
 // WorkerOption configures the jobs of one kind.
 type WorkerOption func(*workerEntry)
 
-// WithTimeout sets the default timeout of the kind (job InsertOpts.Timeout wins).
+// WithTimeout sets the default timeout of the kind.
 func WithTimeout(d time.Duration) WorkerOption { return func(e *workerEntry) { e.timeout = d } }
 
 // WithRetryPolicy sets the retry policy of the kind (default: client policy).
 func WithRetryPolicy(p RetryPolicy) WorkerOption { return func(e *workerEntry) { e.retry = p } }
 
-// WithMaxAttempts sets the default max attempts of jobs of the kind inserted
-// by clients that registered this worker.
+// WithMaxAttempts sets the default max attempts of the kind.
 func WithMaxAttempts(n int) WorkerOption { return func(e *workerEntry) { e.maxAttempts = n } }
 
-// AddWorker registers worker for the kind of T. T must be a non-pointer
-// type whose zero value returns the kind. Registering a kind twice is a
-// programming error and panics.
+// AddWorker registers worker for the kind of T.
 func AddWorker[T JobArgs](w *Workers, worker Worker[T], opts ...WorkerOption) {
 	var zero T
 	kind := zero.Kind()

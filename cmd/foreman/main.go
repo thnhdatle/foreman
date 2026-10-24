@@ -12,7 +12,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/cli"
 )
 
-// Set by the linker (-X main.version=...).
 var (
 	version   = "dev"
 	commit    = "unknown"

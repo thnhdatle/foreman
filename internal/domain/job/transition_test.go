@@ -21,7 +21,6 @@ var allEvents = []job.Event{
 	job.EventAdminDiscard, job.EventAdminRetry,
 }
 
-// expected is the job state diagram written out as (from, event) -> to.
 var expected = map[job.State]map[job.Event]job.State{
 	job.StateAvailable: {
 		job.EventFetched:      job.StateRunning,
@@ -131,9 +130,6 @@ func TestInitialState(t *testing.T) {
 	assert.Equal(t, job.StateAvailable, job.InitialState(time.Time{}, now))
 }
 
-// Property: any sequence of allowed events keeps the job in a valid state;
-// final states are left only through an admin retry, and a job only runs
-// after it was fetched from available.
 func TestNext_Property_RandomWalksStayValid(t *testing.T) {
 	t.Parallel()
 	rapid.Check(t, func(rt *rapid.T) {

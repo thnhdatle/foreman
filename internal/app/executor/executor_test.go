@@ -219,7 +219,7 @@ func TestExecute_PlainContextCancelIsAnError(t *testing.T) {
 		return ctx.Err()
 	})}, nil)
 	ctx, cancel := context.WithCancel(context.Background())
-	cancel() // client shutdown (StopAndCancel), not an operator cancel
+	cancel()
 	c, _ := ex.Execute(ctx, newRow("k", 1))
 	assert.Equal(t, job.StateRetryable, c.State)
 }

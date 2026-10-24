@@ -56,7 +56,7 @@ func TestFake_Ticker_FiresOncePerAdvanceAndRealigns(t *testing.T) {
 	tk := fc.NewTicker(time.Second)
 	fc.Advance(500 * time.Millisecond)
 	assert.False(t, fired(tk.C()))
-	fc.Advance(3 * time.Second) // several periods at once deliver a single tick
+	fc.Advance(3 * time.Second)
 	assert.True(t, fired(tk.C()))
 	assert.False(t, fired(tk.C()))
 	fc.Advance(time.Second)

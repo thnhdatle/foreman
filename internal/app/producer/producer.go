@@ -15,47 +15,32 @@ import (
 	"github.com/thnhdatle/foreman/internal/platform/clock"
 )
 
-// Defaults.
 const (
 	DefaultMaxWorkers    = 10
 	DefaultFetchInterval = time.Second
 	DefaultFetchCooldown = 5 * time.Millisecond
 	DefaultMaxKeys       = 1000
-	// DefaultCallTimeout bounds each store call, so a connection that died
-	// silently stalls the queue for at most this long.
-	DefaultCallTimeout = 15 * time.Second
+	DefaultCallTimeout   = 15 * time.Second
 )
 
-// ErrStopping is the cancellation cause of job contexts on StopAndCancel.
 var ErrStopping = job.ErrClientStopping
 
-// Config configures a Producer.
 type Config struct {
-	Queue    string
-	ClientID string
-	// MaxWorkers is the number of jobs this producer runs at once.
-	MaxWorkers int
-	// FetchInterval is the polling fallback and the paused-state refresh period.
+	Queue         string
+	ClientID      string
+	MaxWorkers    int
 	FetchInterval time.Duration
-	// FetchCooldown is the minimum time between two fetches; it coalesces wake-ups.
 	FetchCooldown time.Duration
-	// PerKeyLimit caps running jobs per concurrency key across the cluster (0 = none).
-	PerKeyLimit int
-	// Fairness alternates between keys instead of strict fetch order.
-	Fairness bool
-	// MaxKeys bounds the keys considered per keyed fetch.
-	MaxKeys int
-	// CallTimeout bounds each store call (default 15s).
-	CallTimeout time.Duration
-	Store       job.Fetcher
-	Clock       clock.Clock
-	Logger      *slog.Logger
-	// Execute runs one fetched job in its own goroutine; ctx is the job context.
-	Execute func(ctx context.Context, row *job.Row)
-	// CanFetch returns false while results cannot be accepted (completer full).
-	CanFetch func() bool
-	// OnFetched observes each successful fetch.
-	OnFetched func(rows []*job.Row, d time.Duration)
+	PerKeyLimit   int
+	Fairness      bool
+	MaxKeys       int
+	CallTimeout   time.Duration
+	Store         job.Fetcher
+	Clock         clock.Clock
+	Logger        *slog.Logger
+	Execute       func(ctx context.Context, row *job.Row)
+	CanFetch      func() bool
+	OnFetched     func(rows []*job.Row, d time.Duration)
 }
 
 type runningJob struct {
@@ -63,17 +48,15 @@ type runningJob struct {
 	cancel  context.CancelCauseFunc
 }
 
-// Producer fetches jobs of one queue and runs them on up to MaxWorkers
-// goroutines. Wake-ups come from NOTIFY (Wake), from finished jobs
-// and from the FetchInterval poll.
+// Producer fetches jobs of one queue and runs them on up to MaxWorkers goroutines.
 type Producer struct {
 	cfg     Config
 	wake    chan struct{}
 	paused  atomic.Bool
-	tracker *fairness.Tracker // used only by the Run goroutine
+	tracker *fairness.Tracker
 	jobs    sync.WaitGroup
 
-	mu      sync.Mutex // protects running
+	mu      sync.Mutex
 	running map[int64]*runningJob
 }
 
@@ -111,10 +94,8 @@ func New(cfg Config) (*Producer, error) {
 	}, nil
 }
 
-// Queue returns the queue name.
 func (p *Producer) Queue() string { return p.cfg.Queue }
 
-// Wake asks for a fetch soon; it never blocks.
 func (p *Producer) Wake() {
 	select {
 	case p.wake <- struct{}{}:
@@ -122,7 +103,6 @@ func (p *Producer) Wake() {
 	}
 }
 
-// SetPaused records the paused state received by NOTIFY.
 func (p *Producer) SetPaused(paused bool) {
 	p.paused.Store(paused)
 	if !paused {
@@ -130,11 +110,9 @@ func (p *Producer) SetPaused(paused bool) {
 	}
 }
 
-// Paused reports the last known paused state.
 func (p *Producer) Paused() bool { return p.paused.Load() }
 
-// Run fetches until ctx is cancelled. Jobs already started keep running;
-// use Wait and CancelAll to drain them.
+// Run fetches and starts jobs until ctx is cancelled.
 func (p *Producer) Run(ctx context.Context) error {
 	ticker := p.cfg.Clock.NewTicker(p.cfg.FetchInterval)
 	defer ticker.Stop()
@@ -161,14 +139,11 @@ func (p *Producer) Run(ctx context.Context) error {
 			continue
 		}
 		if n > 0 && p.free() > 0 {
-			p.Wake() // more jobs may be waiting
+			p.Wake()
 		}
 	}
 }
 
-// waitSignal waits for a wake-up or the poll tick; it returns false when ctx
-// is done. After a fetch error only the poll retries, so wake-ups cannot
-// hammer a failing database.
 func (p *Producer) waitSignal(ctx context.Context, ticker clock.Ticker, failing bool) bool {
 	wake := p.wake
 	if failing {
@@ -184,7 +159,6 @@ func (p *Producer) waitSignal(ctx context.Context, ticker clock.Ticker, failing 
 	return true
 }
 
-// cooldown enforces FetchCooldown since the previous fetch.
 func (p *Producer) cooldown(ctx context.Context, last time.Time) bool {
 	wait := p.cfg.FetchCooldown - p.cfg.Clock.Now().Sub(last)
 	if wait <= 0 {
@@ -218,7 +192,6 @@ func (p *Producer) free() int {
 }
 
 func (p *Producer) fetch(ctx context.Context) (int, error) {
-	// Jobs started below keep ctx (without this timeout) as their parent.
 	callCtx, cancel := context.WithTimeout(ctx, p.cfg.CallTimeout)
 	defer cancel()
 	free := p.free()
@@ -249,7 +222,6 @@ func (p *Producer) fetch(ctx context.Context) (int, error) {
 	return len(rows), nil
 }
 
-// allocate splits free capacity between keys with available jobs.
 func (p *Producer) allocate(ctx context.Context, free int) ([]job.KeyQuota, error) {
 	stats, err := p.cfg.Store.KeyStats(ctx, p.cfg.Queue, p.cfg.MaxKeys, p.cfg.PerKeyLimit > 0)
 	if err != nil {
@@ -278,8 +250,6 @@ func (p *Producer) allocate(ctx context.Context, free int) ([]job.KeyQuota, erro
 	return quotas, nil
 }
 
-// start runs a fetched job. Job contexts do not derive their cancellation
-// from the fetch loop: a graceful stop lets running jobs finish.
 func (p *Producer) start(ctx context.Context, row *job.Row) {
 	jobCtx, cancel := context.WithCancelCause(context.WithoutCancel(ctx))
 	p.mu.Lock()
@@ -297,8 +267,6 @@ func (p *Producer) start(ctx context.Context, row *job.Row) {
 	}()
 }
 
-// Cancel cancels the context of job id with cause job.ErrCancelRequested if
-// this producer runs it.
 func (p *Producer) Cancel(id int64) bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -309,7 +277,7 @@ func (p *Producer) Cancel(id int64) bool {
 	return ok
 }
 
-// CancelAll cancels every running job context with cause ErrStopping.
+// CancelAll cancels the context of every running job.
 func (p *Producer) CancelAll() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -318,7 +286,7 @@ func (p *Producer) CancelAll() {
 	}
 }
 
-// Wait blocks until every started job has returned or ctx is done.
+// Wait blocks until all running jobs have finished or ctx is done.
 func (p *Producer) Wait(ctx context.Context) error {
 	done := make(chan struct{})
 	go func() {
@@ -333,7 +301,6 @@ func (p *Producer) Wait(ctx context.Context) error {
 	}
 }
 
-// Running lists the attempts in progress.
 func (p *Producer) Running() []job.Ref {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -344,7 +311,6 @@ func (p *Producer) Running() []job.Ref {
 	return out
 }
 
-// RunningCount returns the number of jobs in progress.
 func (p *Producer) RunningCount() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()

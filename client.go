@@ -19,8 +19,7 @@ import (
 	"github.com/thnhdatle/foreman/migrate"
 )
 
-// Client inserts jobs, runs worker pools for its queues and, when elected
-// leader, the maintenance services. It is safe for concurrent use.
+// Client inserts jobs and runs worker pools and maintenance services.
 type Client struct {
 	cfg      Config
 	store    *pgstore.Store
@@ -30,17 +29,15 @@ type Client struct {
 	tracer   *tracing.Tracer
 	executor *executor.Executor
 
-	servedMu sync.Mutex // protects served and servedAt
+	servedMu sync.Mutex
 	served   map[string]struct{}
 	servedAt time.Time
 
-	mu  sync.Mutex // protects run
+	mu  sync.Mutex
 	run *runState
 }
 
-// NewClient validates cfg and returns a client using pool. It starts no
-// goroutines; call Start to run workers. A client with no queues is
-// producer-only and never needs Start.
+// NewClient validates cfg and returns a client using pool.
 func NewClient(pool *pgxpool.Pool, cfg Config) (*Client, error) {
 	if pool == nil {
 		return nil, fmt.Errorf("%w: nil pool", ErrInvalidArgument)
@@ -94,10 +91,7 @@ func (c *Client) IsLeader() bool {
 	return r != nil && r.elector != nil && r.elector.IsLeader()
 }
 
-// Start runs the worker pools of the configured queues, the heartbeats, the
-// LISTEN connection and leader election. It returns once everything is
-// running. The schema must be migrated (package migrate). Cancelling ctx
-// later has the effect of StopAndCancel with no grace period.
+// Start runs the worker pools, heartbeats, LISTEN connection and leader election.
 func (c *Client) Start(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -121,13 +115,10 @@ func (c *Client) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop shuts down gracefully: it stops fetching, waits for running
-// jobs until ctx is done, then cancels the rest, flushes completions and
-// resigns leadership. It returns ctx.Err() if jobs had to be cancelled.
+// Stop shuts down gracefully, waiting for running jobs until ctx is done.
 func (c *Client) Stop(ctx context.Context) error { return c.stop(ctx, false) }
 
-// StopAndCancel cancels the contexts of running jobs at once, waits for them
-// (bounded by ctx), flushes completions and resigns leadership.
+// StopAndCancel cancels running jobs at once and waits for them.
 func (c *Client) StopAndCancel(ctx context.Context) error { return c.stop(ctx, true) }
 
 func (c *Client) stop(ctx context.Context, cancelJobs bool) error {
@@ -168,7 +159,6 @@ func (c *Client) lookup(kind string) (executor.Handler, bool) {
 	return h, true
 }
 
-// workFunc wraps a worker in the tracing span and the middleware chain.
 func (c *Client) workFunc(w *workerEntry) executor.WorkFunc {
 	return func(ctx context.Context, row *job.Row) (err error) {
 		jr := toJobRow(row)
@@ -214,7 +204,7 @@ func (c *Client) observeAttempt(row *job.Row, outcome string, d time.Duration) {
 	c.metrics.Duration.WithLabelValues(q, k).Observe(d.Seconds())
 }
 
-// execute runs one fetched job; called by producers on the job goroutine.
+// execute runs one fetched job.
 func (c *Client) execute(ctx context.Context, r *runState, row *job.Row) {
 	q := c.metrics.Queue(row.Queue)
 	if row.AttemptedAt != nil {
@@ -241,10 +231,7 @@ func (c *Client) heartbeat(ctx context.Context, ref job.Ref) {
 	}
 }
 
-// JobWork runs one available job synchronously on this client (for tests
-// and operator tooling): it marks the job running for this client, runs it
-// through the middleware, executor and result mapping, writes the result and
-// returns the updated row. The kind must have a worker on this client.
+// JobWork runs one available job synchronously on this client.
 func (c *Client) JobWork(ctx context.Context, id int64) (*JobRow, error) {
 	row, err := c.store.FetchByID(ctx, id, c.cfg.ID, c.clock.Now())
 	if err != nil {

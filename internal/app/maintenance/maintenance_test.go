@@ -150,7 +150,6 @@ func TestRescuer_RescuesStuckJobs(t *testing.T) {
 	assert.Equal(t, 2, rescued)
 	mu.Unlock()
 
-	// One heartbeat interval later the remaining job is stuck too.
 	fc.Advance(time.Hour)
 	testutil.Eventually(t, func() bool { return state(t, s, alive) == job.StateRetryable }, time.Second)
 }
@@ -209,11 +208,11 @@ func TestCleaner_DeletesPerStateRetention(t *testing.T) {
 		_, ok := s.Job(id)
 		assert.True(t, ok, "job %d kept", id)
 	}
-	parked := func(runs int) func() bool { // run number `runs` finished and the next one is armed
+	parked := func(runs int) func() bool {
 		return func() bool { _, n := obs.get("cleaner"); return n == runs && fc.Waiters() >= 1 }
 	}
 	testutil.Eventually(t, parked(1), time.Second)
-	fc.Advance(31 * time.Minute) // the young job passes its 1h retention
+	fc.Advance(31 * time.Minute)
 	testutil.Eventually(t, func() bool { _, ok := s.Job(youngDone); return !ok }, time.Second)
 	testutil.Eventually(t, parked(2), time.Second)
 	s.FailNext(1)
@@ -281,7 +280,7 @@ func TestCancelPoller(t *testing.T) {
 		Running:  func() []int64 { mu.Lock(); defer mu.Unlock(); return running },
 		OnCancel: func(id int64) { mu.Lock(); cancelled = append(cancelled, id); mu.Unlock() },
 	}
-	p.Poll(context.Background()) // nothing running: no query
+	p.Poll(context.Background())
 	mu.Lock()
 	running = []int64{a, b}
 	mu.Unlock()

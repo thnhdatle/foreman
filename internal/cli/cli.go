@@ -18,36 +18,32 @@ import (
 	"github.com/thnhdatle/foreman/internal/config"
 )
 
-// Exit codes.
 const (
 	ExitOK     = 0
 	ExitError  = 1
 	ExitConfig = 2
 )
 
-// BuildInfo is set by the linker in cmd/foreman.
 type BuildInfo struct {
 	Version, Commit, BuildDate string
 }
 
-// IO holds the process environment, so tests can run commands in process.
+// IO holds the process streams and environment.
 type IO struct {
 	Stdout, Stderr io.Writer
 	Getenv         func(string) string
 }
 
-// app is the state shared by the commands of one invocation.
 type app struct {
 	io         IO
 	build      BuildInfo
 	configPath string
-	flags      config.Config // values set by flags
+	flags      config.Config
 	setFlags   map[string]bool
 	cfg        config.Config
 	pool       *pgxpool.Pool
 }
 
-// errConfig marks configuration errors (exit code 2).
 type errConfig struct{ err error }
 
 func (e errConfig) Error() string { return e.err.Error() }
@@ -92,7 +88,6 @@ func (a *app) root() *cobra.Command {
 	return root
 }
 
-// load resolves the configuration: defaults < file < env < flags.
 func (a *app) load(cmd *cobra.Command, needDatabase bool) error {
 	cfg, err := config.Load(a.configPath, a.io.Getenv)
 	if err != nil {
@@ -135,7 +130,6 @@ func (a *app) connect(ctx context.Context) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// client returns a producer-only client for admin commands.
 func (a *app) client(ctx context.Context) (*foreman.Client, error) {
 	pool, err := a.connect(ctx)
 	if err != nil {
@@ -156,7 +150,6 @@ func (a *app) client(ctx context.Context) (*foreman.Client, error) {
 	return c, nil
 }
 
-// withClient runs fn with a timeout-bound context and a client.
 func (a *app) withClient(fn func(ctx context.Context, c *foreman.Client) error) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, _ []string) error {
 		if err := a.load(cmd, true); err != nil {

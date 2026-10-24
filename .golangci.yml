@@ -5,8 +5,6 @@ run:
   timeout: 10m
   build-tags:
     - integration
-    - acceptance
-    - bench
 
 linters:
   default: none
@@ -122,6 +120,11 @@ linters:
       - path-except: internal/adapter/
         linters:
           - wrapcheck
+      # Only the public API needs a doc comment on every exported name.
+      - path: (^internal/|^cmd/|^examples/)
+        text: "exported"
+        linters:
+          - revive
       - path: _test\.go
         linters:
           - contextcheck
@@ -138,12 +141,6 @@ linters:
           - forcetypeassert
           - lll
           - maintidx
-      # Acceptance criteria share one compose stack and run one at a time.
-      - path: acceptance/
-        linters:
-          - gocyclo
-          - nestif
-          - paralleltest
       - path: (_test\.go|^examples/)
         text: "shadow: declaration of \"err\""
         linters:

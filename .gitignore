@@ -4,7 +4,6 @@
 *.coverprofile
 *.out
 *.test
-acceptance/logs/
 out/
 .venv/
 __pycache__/

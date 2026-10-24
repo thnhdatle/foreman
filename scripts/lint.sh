@@ -7,7 +7,6 @@ cd "$(dirname "$0")/.."
 
 golangci-lint run ./...
 
-# The examples are their own module-free directories inside this module, linted above.
 hadolint Dockerfile
 shellcheck scripts/*.sh .githooks/*
 
@@ -17,7 +16,6 @@ if [ -d deploy/kubernetes ]; then
   kubeconform -strict -summary deploy/kubernetes
 fi
 
-# SPDX header in every source file.
 missing=$(git ls-files --cached --others --exclude-standard '*.go' '*.sh' '*.py' '*.sql' \
   | grep -v '^testdata/' | while read -r f; do
     [ -f "$f" ] || continue
@@ -29,7 +27,6 @@ if [ -n "$missing" ]; then
   exit 1
 fi
 
-# TODO comments must reference the roadmap.
 if git grep -nE 'TODO([^(]|$)' -- '*.go' ':!testdata' >/dev/null; then
   echo "bare TODO found; use TODO(roadmap): and list it in ROADMAP.md" >&2
   git grep -nE 'TODO([^(]|$)' -- '*.go' ':!testdata' >&2

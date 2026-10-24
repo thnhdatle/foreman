@@ -12,7 +12,6 @@ import (
 func ExampleHandler() {
 	var client *foreman.Client
 	mux := http.NewServeMux()
-	// Protect the admin API with the application's own authentication.
 	requireAdmin := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Header.Get("Authorization") != "Bearer secret-from-config" {

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command basic registers a worker, enqueues a job in a transaction together
-// with a business row, and waits for the job to complete.
+// Command basic enqueues a job in a transaction and waits for it to complete.
 package main
 
 import (
@@ -16,21 +15,17 @@ import (
 	"github.com/thnhdatle/foreman/examples/internal/exampledb"
 )
 
-// EmailArgs are the arguments of an email job.
 type EmailArgs struct {
 	UserID int64  `json:"user_id"`
 	Tmpl   string `json:"tmpl"`
 }
 
-// Kind identifies the job type.
 func (EmailArgs) Kind() string { return "email" }
 
-// EmailWorker sends emails.
 type EmailWorker struct {
 	done chan int64
 }
 
-// Work sends the email (here: prints it).
 func (w *EmailWorker) Work(_ context.Context, job *foreman.Job[EmailArgs]) error {
 	fmt.Printf("sending %q email to user %d (attempt %d)\n", job.Args.Tmpl, job.Args.UserID, job.Attempt)
 	w.done <- job.ID
@@ -72,7 +67,6 @@ func run(ctx context.Context) error {
 	}
 	defer func() { _ = client.Stop(ctx) }()
 
-	// The user row and the welcome email job commit together.
 	tx, err := pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -106,7 +100,6 @@ func run(ctx context.Context) error {
 	}
 }
 
-// waitFinal polls until the job's result is written (results are batched).
 func waitFinal(ctx context.Context, c *foreman.Client, id int64) (*foreman.JobRow, error) {
 	deadline := time.Now().Add(10 * time.Second)
 	for {

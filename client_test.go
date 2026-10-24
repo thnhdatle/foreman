@@ -22,7 +22,6 @@ type unitArgs struct {
 
 func (unitArgs) Kind() string { return "unit" }
 
-// lazyPool never connects: NewClient and option resolution need no database.
 func lazyPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	pool, err := pgxpool.New(context.Background(), "postgres://nobody@127.0.0.1:1/none?connect_timeout=1")

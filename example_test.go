@@ -30,8 +30,6 @@ func (w *EmailWorker) Work(ctx context.Context, job *foreman.Job[EmailArgs]) err
 	return nil
 }
 
-// Example shows the whole lifecycle: migrate, register workers, start a
-// client, enqueue in a transaction, stop.
 func Example() {
 	if err := run(context.Background()); err != nil {
 		log.Fatal(err)
@@ -66,7 +64,6 @@ func run(ctx context.Context) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	// ... insert the user in tx ...
 	if _, err := client.InsertTx(ctx, tx, EmailArgs{UserID: 42, Tmpl: "welcome"},
 		&foreman.InsertOpts{ConcurrencyKey: "tenant-7"}); err != nil {
 		return err
@@ -92,8 +89,7 @@ func ExampleNewWorkers() {
 }
 
 func ExampleNewClient() {
-	var pool *pgxpool.Pool // your application's pool
-	// A client without queues only inserts and administers jobs.
+	var pool *pgxpool.Pool
 	_, err := foreman.NewClient(pool, foreman.Config{})
 	fmt.Println(errors.Is(err, foreman.ErrInvalidArgument))
 	// Output: true
@@ -116,7 +112,6 @@ func ExampleClient_InsertTx() {
 		client *foreman.Client
 		tx     pgx.Tx
 	)
-	// The job exists only if tx commits.
 	_, _ = client.InsertTx(context.Background(), tx, EmailArgs{UserID: 2, Tmpl: "welcome"}, nil)
 }
 
@@ -126,7 +121,7 @@ func ExampleClient_InsertMany() {
 	for i := int64(0); i < 100; i++ {
 		params = append(params, foreman.InsertParams{Args: EmailArgs{UserID: i, Tmpl: "digest"}})
 	}
-	_, _ = client.InsertMany(context.Background(), params) // COPY for batches of 10 or more
+	_, _ = client.InsertMany(context.Background(), params)
 }
 
 func ExampleClient_InsertManyTx() {
@@ -145,7 +140,6 @@ func ExampleClient_Start() {
 	if err := client.Start(ctx); err != nil {
 		log.Fatal(err)
 	}
-	// On shutdown: finish running jobs for up to 30s, then cancel them.
 	stopCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	_ = client.Stop(stopCtx)
@@ -155,7 +149,7 @@ func ExampleClient_StopAndCancel() {
 	var client *foreman.Client
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	_ = client.StopAndCancel(ctx) // running jobs see their context cancelled
+	_ = client.StopAndCancel(ctx)
 }
 
 func ExampleClient_JobCancel() {
@@ -168,7 +162,6 @@ func ExampleClient_JobCancel() {
 
 func ExampleClient_JobRetry() {
 	var client *foreman.Client
-	// Move a dead-lettered job back to available with attempt 0.
 	_, _ = client.JobRetry(context.Background(), 123)
 }
 
@@ -228,14 +221,14 @@ func ExampleClient_JobDeleteMany() {
 func ExampleClient_JobWork() {
 	var client *foreman.Client
 	res, _ := client.Insert(context.Background(), EmailArgs{UserID: 3}, nil)
-	job, _ := client.JobWork(context.Background(), res.Job.ID) // runs it now, synchronously
+	job, _ := client.JobWork(context.Background(), res.Job.ID)
 	fmt.Println(job.State)
 }
 
 func ExampleClient_QueuePause() {
 	var client *foreman.Client
 	ctx := context.Background()
-	_ = client.QueuePause(ctx, "mail") // running jobs finish; nothing new is fetched
+	_ = client.QueuePause(ctx, "mail")
 	_ = client.QueueResume(ctx, "mail")
 }
 
@@ -277,7 +270,6 @@ func ExampleDecodeArgs() {
 func ExampleClientFromContext() {
 	_ = foreman.WorkFunc[EmailArgs](func(ctx context.Context, job *foreman.Job[EmailArgs]) error {
 		client := foreman.ClientFromContext(ctx)
-		// Enqueue a follow-up job from inside Work.
 		_, err := client.Insert(ctx, EmailArgs{UserID: job.Args.UserID, Tmpl: "follow-up"}, nil)
 		return err
 	})
@@ -290,11 +282,10 @@ func ExampleCompleteTx() {
 			return err
 		}
 		defer func() { _ = tx.Rollback(ctx) }()
-		// ... write the job's effects in tx ...
 		if err := foreman.CompleteTx(ctx, tx, job); err != nil {
 			return err
 		}
-		return tx.Commit(ctx) // effects and completion commit together
+		return tx.Commit(ctx)
 	})
 }
 
@@ -319,8 +310,7 @@ func ExampleCancel() {
 func ExampleHeartbeat() {
 	_ = foreman.WorkFunc[EmailArgs](func(ctx context.Context, job *foreman.Job[EmailArgs]) error {
 		for i := 0; i < 10; i++ {
-			// ... one long step ...
-			foreman.Heartbeat(ctx) // keeps the rescuer away between automatic heartbeats
+			foreman.Heartbeat(ctx)
 		}
 		return nil
 	})

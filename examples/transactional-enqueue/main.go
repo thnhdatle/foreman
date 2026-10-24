@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command transactional-enqueue shows that a job inserted with InsertTx
-// exists only if its transaction commits.
+// Command transactional-enqueue shows a job inserted in a transaction.
 package main
 
 import (
@@ -16,12 +15,10 @@ import (
 	"github.com/thnhdatle/foreman/examples/internal/exampledb"
 )
 
-// InvoiceArgs are the arguments of an invoice job.
 type InvoiceArgs struct {
 	OrderID int64 `json:"order_id"`
 }
 
-// Kind identifies the job type.
 func (InvoiceArgs) Kind() string { return "invoice" }
 
 func main() {
@@ -76,7 +73,6 @@ func run(ctx context.Context) error {
 	return nil
 }
 
-// placeOrder writes an order and its invoice job in one transaction.
 func placeOrder(ctx context.Context, c *foreman.Client, id int64, commit bool) (int64, error) {
 	tx, err := c.Pool().Begin(ctx)
 	if err != nil {

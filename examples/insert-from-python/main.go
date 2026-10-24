@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command insert-from-python runs a Go worker for jobs enqueued by a Python
-// script through the SQL contract foreman_insert_job (CONTRACTS C5).
+// Command insert-from-python runs a Go worker for jobs enqueued by a Python script.
 package main
 
 import (
@@ -17,13 +16,11 @@ import (
 	"github.com/thnhdatle/foreman/examples/internal/exampledb"
 )
 
-// EmailArgs match the JSON the Python script inserts.
 type EmailArgs struct {
 	To       string `json:"to"`
 	Template string `json:"template"`
 }
 
-// Kind identifies the job type.
 func (EmailArgs) Kind() string { return "email" }
 
 func main() {
@@ -58,7 +55,6 @@ func run(ctx context.Context) error {
 	}
 	defer func() { _ = client.Stop(ctx) }()
 
-	// uv provides Python and psycopg without touching the system Python.
 	cmd := exec.CommandContext(ctx, "uv", "run", "--quiet", "--no-project", "--python", "3.12",
 		"--with", "psycopg[binary]==3.2.10", "python", "examples/insert-from-python/insert.py", schema)
 	cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr

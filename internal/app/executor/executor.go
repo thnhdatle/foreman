@@ -21,40 +21,31 @@ type WorkFunc func(ctx context.Context, row *job.Row) error
 // RetryFunc returns the next run time of a job that failed at now.
 type RetryFunc func(row *job.Row, now time.Time) time.Time
 
-// Handler is the per-kind configuration resolved from registered workers.
 type Handler struct {
 	Work    WorkFunc
-	Timeout time.Duration // 0 uses the client default
-	Retry   RetryFunc     // nil uses the client default
+	Timeout time.Duration
+	Retry   RetryFunc
 }
 
-// Config configures an Executor.
 type Config struct {
-	// Lookup returns the handler for a job kind.
-	Lookup func(kind string) (Handler, bool)
-	// DefaultTimeout applies when neither the job nor its kind sets one; 0 = none.
+	Lookup         func(kind string) (Handler, bool)
 	DefaultTimeout time.Duration
-	// DefaultRetry computes retry times when the kind has no policy.
-	DefaultRetry RetryFunc
-	// HandleError and HandlePanic may override the outcome of errors and panics.
-	HandleError func(ctx context.Context, row *job.Row, err error) *job.Override
-	HandlePanic func(ctx context.Context, row *job.Row, value any, trace string) *job.Override
-	Clock       clock.Clock
-	Logger      *slog.Logger
-	// Observe is called after every attempt with the outcome kind and duration.
-	Observe func(row *job.Row, outcome string, d time.Duration)
+	DefaultRetry   RetryFunc
+	HandleError    func(ctx context.Context, row *job.Row, err error) *job.Override
+	HandlePanic    func(ctx context.Context, row *job.Row, value any, trace string) *job.Override
+	Clock          clock.Clock
+	Logger         *slog.Logger
+	Observe        func(row *job.Row, outcome string, d time.Duration)
 }
 
-// Executor runs Work with a timeout and panic recovery and maps the result
-// to a completion.
+// Executor runs a job with a timeout and panic recovery and maps the result to a completion.
 type Executor struct {
 	cfg Config
 }
 
-// ErrNoWorker is the error recorded for jobs whose kind has no worker.
 var ErrNoWorker = job.ErrNoWorker
 
-// New returns an Executor; Lookup, DefaultRetry and Clock are required.
+// New validates cfg and applies defaults.
 func New(cfg Config) (*Executor, error) {
 	if cfg.Lookup == nil || cfg.DefaultRetry == nil || cfg.Clock == nil {
 		return nil, errors.New("executor: Lookup, DefaultRetry and Clock are required")
@@ -65,32 +56,23 @@ func New(cfg Config) (*Executor, error) {
 	return &Executor{cfg: cfg}, nil
 }
 
-// Attempt is the per-attempt state reachable from the job context.
 type Attempt struct {
 	Row           *job.Row
 	completedInTx atomic.Bool
 }
 
-// MarkCompletedInTx records that Work completed the job in its own
-// transaction (CompleteTx); the executor then skips its own completion when
-// Work returns nil.
 func (a *Attempt) MarkCompletedInTx() { a.completedInTx.Store(true) }
 
-// CompletedInTx reports whether MarkCompletedInTx was called.
 func (a *Attempt) CompletedInTx() bool { return a.completedInTx.Load() }
 
 type attemptKey struct{}
 
-// AttemptFromContext returns the attempt of the job running in ctx, or nil.
 func AttemptFromContext(ctx context.Context) *Attempt {
 	a, _ := ctx.Value(attemptKey{}).(*Attempt)
 	return a
 }
 
-// Execute runs one attempt of row. ctx is the job context created by the
-// producer; it is cancelled with cause job.ErrCancelRequested when an operator
-// cancels the job. skip is true when the job was completed by CompleteTx and
-// no completion must be written.
+// Execute runs one attempt of row and returns the completion to write.
 func (e *Executor) Execute(ctx context.Context, row *job.Row) (c job.Completion, skip bool) {
 	attempt := &Attempt{Row: row}
 	ctx = context.WithValue(ctx, attemptKey{}, attempt)
@@ -149,7 +131,6 @@ func (e *Executor) run(ctx context.Context, row *job.Row, h Handler) (o job.Outc
 }
 
 func (e *Executor) override(ctx context.Context, row *job.Row, o job.Outcome) (ov *job.Override) {
-	// A misbehaving handler must not crash the worker; its panic is ignored.
 	defer func() {
 		if v := recover(); v != nil {
 			e.cfg.Logger.Error("error handler panicked", "job_id", row.ID, "error", fmt.Sprint(v))

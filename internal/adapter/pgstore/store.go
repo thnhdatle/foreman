@@ -18,8 +18,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/unique"
 )
 
-// DB is satisfied by *pgxpool.Pool and pgx.Tx: statements that may run in a
-// caller's transaction (InsertTx, CompleteTx) accept either.
 type DB interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
@@ -28,15 +26,13 @@ type DB interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
-// Store implements the job store ports on Postgres with pgx v5. Every SQL
-// statement of Foreman lives in this package; every time value comes from
-// the caller (client clock), never from now().
+// Store implements the job store ports on Postgres.
 type Store struct {
 	pool  *pgxpool.Pool
 	names Names
 }
 
-// New returns a Store for schema (default public).
+// New returns a Store for schema.
 func New(pool *pgxpool.Pool, schema string) (*Store, error) {
 	if pool == nil {
 		return nil, errors.New("pgstore: nil pool")
@@ -48,24 +44,18 @@ func New(pool *pgxpool.Pool, schema string) (*Store, error) {
 	return &Store{pool: pool, names: names}, nil
 }
 
-// Names returns the schema-dependent identifiers.
 func (s *Store) Names() Names { return s.names }
 
-// Pool returns the underlying pool.
 func (s *Store) Pool() *pgxpool.Pool { return s.pool }
 
-// sql renders a query template for the configured schema.
 func (s *Store) sql(q string) string { return strings.ReplaceAll(q, "{{s}}", s.names.Quoted) }
 
-// jobColumns are selected for every job row, in scanRow order.
 var jobColumns = []string{
 	"id", "kind", "queue", "args", "state::text", "priority", "attempt", "max_attempts", "scheduled_at",
 	"attempted_at", "finalized_at", "created_at", "heartbeat_at", "cancel_requested_at", "attempted_by",
 	"array_to_json(errors)", "tags", "metadata", "unique_key", "unique_states::text", "concurrency_key", "timeout_ms",
 }
 
-// cols returns the job columns of alias j as expressions named after their
-// columns, so an outer query can select them by name.
 func cols() string {
 	const alias = "j"
 	out := make([]string, len(jobColumns))
@@ -84,7 +74,6 @@ func cols() string {
 	return strings.Join(out, ", ")
 }
 
-// plainCols names the columns produced by cols(alias) through another alias.
 func plainCols(alias string) string {
 	names := []string{
 		"id", "kind", "queue", "args", "state", "priority", "attempt", "max_attempts", "scheduled_at",
@@ -97,7 +86,6 @@ func plainCols(alias string) string {
 	return strings.Join(names, ", ")
 }
 
-// scanRow scans the columns of cols() (plus any extra destinations).
 func scanRow(row pgx.Row, extra ...any) (*job.Row, error) {
 	var (
 		r         job.Row
@@ -149,7 +137,6 @@ func collectRows(rows pgx.Rows) ([]*job.Row, error) {
 	return out, rows.Err() //nolint:wrapcheck // callers wrap with the operation
 }
 
-// translate maps Postgres errors to domain errors and adds context.
 func translate(op string, err error) error {
 	if err == nil {
 		return nil

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command periodic enqueues a job every second through the leader and stops
-// after three ticks.
+// Command periodic enqueues a job every second through the leader.
 package main
 
 import (
@@ -16,10 +15,8 @@ import (
 	"github.com/thnhdatle/foreman/examples/internal/exampledb"
 )
 
-// CleanupArgs are the arguments of the periodic cleanup job.
 type CleanupArgs struct{}
 
-// Kind identifies the job type.
 func (CleanupArgs) Kind() string { return "cleanup" }
 
 func main() {
@@ -46,7 +43,7 @@ func run(ctx context.Context) error {
 		Schema: schema, Workers: workers, Queues: map[string]foreman.QueueConfig{"default": {}},
 		PeriodicJobs: []*foreman.PeriodicJob{{
 			Name:     "cleanup",
-			Schedule: foreman.Every(time.Second), // or foreman.MustCron("*/5 * * * * *")
+			Schedule: foreman.Every(time.Second),
 			Args:     func() (foreman.JobArgs, *foreman.InsertOpts) { return CleanupArgs{}, nil },
 			CatchUp:  time.Minute,
 		}},

@@ -86,7 +86,7 @@ func TestInsert_InCallerTransactionOnlyOnCommit(t *testing.T) {
 		}
 		_, err = e.store.Insert(ctx, tx, ps)
 		require.NoError(t, err)
-		_, err = e.store.Insert(ctx, tx, ps) // a second batch in the same transaction
+		_, err = e.store.Insert(ctx, tx, ps)
 		require.NoError(t, err)
 		require.NoError(t, tx.Rollback(ctx))
 	}
@@ -115,7 +115,6 @@ func TestInsert_UniqueSkipsDuplicates(t *testing.T) {
 	other := e.insert(t, uniqueParams("u", `{"a":2}`, byArgs))[0]
 	assert.False(t, other.Skipped)
 
-	// A batch through COPY with duplicates inside the batch and of existing jobs.
 	var batch []job.InsertParams
 	for i := 0; i < 12; i++ {
 		batch = append(batch, uniqueParams("u", fmt.Sprintf(`{"a":%d}`, i%4), byArgs))
@@ -160,7 +159,6 @@ func TestInsert_NonCanonicalArgsRejected(t *testing.T) {
 	_, err := e.store.Insert(context.Background(), e.pool, []job.InsertParams{uniqueParams("u", `{"x":1.5}`, unique.Options{ByArgs: true})})
 	require.ErrorIs(t, err, unique.ErrArgsNotCanonical)
 	assert.Zero(t, e.count(t, "true"))
-	// Non-unique jobs may carry any number.
 	e.insert(t, func() job.InsertParams { p := params("k", "q"); p.Args = []byte(`{"x":1.5}`); return p }())
 }
 
@@ -170,8 +168,6 @@ type vector struct {
 	Error    string          `json:"error"`
 }
 
-// Golden vectors through both insert paths: the Go client (identity built by
-// internal/domain/unique) and foreman_insert_job (identity built in SQL).
 func TestInsert_GoldenVectorsBothPaths(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -192,7 +188,7 @@ func TestInsert_GoldenVectorsBothPaths(t *testing.T) {
 		}
 		require.NoError(t, json.Unmarshal(v.Identity, &ident))
 		if ident.Queue != nil || ident.Period != nil {
-			continue // identities with queue/period depend on insert time; covered in the SQL vector test
+			continue
 		}
 		name := filepath.Base(p)
 		gp := params(ident.Kind, "default")
@@ -245,7 +241,6 @@ func TestInsertJobFunction_Options(t *testing.T) {
 	assert.Equal(t, 25, r.MaxAttempts)
 	assert.Equal(t, job.StateAvailable, r.State)
 
-	// Unique by selected fields and queue: the Go and SQL identities agree.
 	opts := unique.Options{ByArgFields: []string{"user"}, ByQueue: true}
 	goRes := e.insert(t, uniqueParams("welcome", `{"user":9007199254740993,"noise":1}`, opts))[0]
 	require.NoError(t, e.pool.QueryRow(ctx, `SELECT `+fn+`('welcome', '{"noise":2,"user":9007199254740993}',
@@ -288,7 +283,6 @@ func TestInsertJobFunction_PeriodBucketMatchesGo(t *testing.T) {
 
 var iteration atomic.Int64
 
-// Property: concurrent inserts with the same unique key leave exactly one row.
 func TestInsert_Property_ConcurrentUniqueInsertsLeaveOneRow(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)
@@ -298,7 +292,7 @@ func TestInsert_Property_ConcurrentUniqueInsertsLeaveOneRow(t *testing.T) {
 		keys := rapid.IntRange(1, 5).Draw(rt, "keys")
 		workers := rapid.IntRange(2, 12).Draw(rt, "workers")
 		perWorker := rapid.IntRange(1, 6).Draw(rt, "perWorker")
-		run := iteration.Add(1) // rapid replays drawn values while shrinking; keep runs apart
+		run := iteration.Add(1)
 		var wg sync.WaitGroup
 		errs := make(chan error, workers*perWorker)
 		for w := 0; w < workers; w++ {
@@ -345,7 +339,6 @@ func distinctKeys(workers, perWorker, keys int) int {
 	return len(seen)
 }
 
-// jsonValue generates random JSON with integral numbers in several spellings.
 func jsonValue(depth int) *rapid.Generator[string] {
 	return rapid.Custom(func(t *rapid.T) string {
 		kind := rapid.IntRange(0, 5).Draw(t, "kind")
@@ -356,7 +349,6 @@ func jsonValue(depth int) *rapid.Generator[string] {
 		case 0:
 			return rapid.SampledFrom([]string{"true", "false", "null"}).Draw(t, "lit")
 		case 1:
-			// jsonb cannot store U+0000.
 			s := strings.ReplaceAll(rapid.String().Draw(t, "s"), "\x00", "")
 			b, _ := json.Marshal(s)
 			return string(b)
@@ -387,7 +379,6 @@ func jsonValue(depth int) *rapid.Generator[string] {
 	})
 }
 
-// rewrite permutes object keys and respells integers as n, n.0 or ne0.
 func rewrite(t *rapid.T, v any) string {
 	switch x := v.(type) {
 	case map[string]any:
@@ -423,8 +414,6 @@ func rewrite(t *rapid.T, v any) string {
 	}
 }
 
-// Property: permuting keys and respelling integers never changes
-// foreman_canonical_json; distinct integers never collide.
 func TestCanonicalJSON_Property_PermutationAndNumberSpelling(t *testing.T) {
 	t.Parallel()
 	e := newEnv(t)

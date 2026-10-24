@@ -4,19 +4,14 @@ package foreman
 
 import "context"
 
-// Middleware wraps inserts and work, for example for tracing, metrics,
-// logging or adding metadata. Middleware runs in Config.Middleware order:
-// the first one is the outermost.
+// Middleware wraps inserts and work.
 type Middleware interface {
-	// InsertMany wraps every insert (single inserts are batches of one).
 	InsertMany(ctx context.Context, params []InsertParams, next func(ctx context.Context) ([]*InsertResult, error)) (
 		[]*InsertResult, error)
-	// Work wraps each attempt of a job.
 	Work(ctx context.Context, job *JobRow, next func(ctx context.Context) error) error
 }
 
-// MiddlewareDefaults implements Middleware as a pass-through; embed it to
-// implement only one of the hooks.
+// MiddlewareDefaults is a pass-through Middleware to embed.
 type MiddlewareDefaults struct{}
 
 // InsertMany calls next.

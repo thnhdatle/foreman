@@ -14,12 +14,8 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// Errors of unique jobs.
 var (
-	// ErrInvalidOptions is wrapped by every validation error of Options.
-	ErrInvalidOptions = errors.New("unique: invalid options")
-	// ErrArgsNotCanonical reports a non-integral number in the unique
-	// identity; foreman_canonical_json rejects it (SQLSTATE 22023).
+	ErrInvalidOptions   = errors.New("unique: invalid options")
 	ErrArgsNotCanonical = errors.New("foreman: unique args not canonical")
 )
 
@@ -32,12 +28,10 @@ type Options struct {
 	ByState     []job.State
 }
 
-// DefaultStates are the states covered when ByState is empty.
 var DefaultStates = []job.State{
 	job.StateAvailable, job.StateScheduled, job.StateRunning, job.StateRetryable, job.StateCompleted,
 }
 
-// Validate reports every problem with o at once.
 func (o Options) Validate() error {
 	var errs []error
 	if o.ByArgs && len(o.ByArgFields) > 0 {
@@ -58,9 +52,6 @@ func (o Options) Validate() error {
 		}
 	}
 	if len(o.ByState) > 0 {
-		// Transitions between pending states are applied by maintenance in
-		// bulk; excluding one of them could make such an update violate the
-		// unique index, so all four are required.
 		for _, p := range job.PendingStates {
 			if !slices.Contains(o.ByState, p) {
 				errs = append(errs, fmt.Errorf("ByState must include %s", p))
@@ -73,7 +64,6 @@ func (o Options) Validate() error {
 	return fmt.Errorf("%w: %w", ErrInvalidOptions, errors.Join(errs...))
 }
 
-// States returns ByState, or DefaultStates when it is empty.
 func (o Options) States() []job.State {
 	if len(o.ByState) == 0 {
 		return DefaultStates
@@ -81,7 +71,6 @@ func (o Options) States() []job.State {
 	return o.ByState
 }
 
-// Mask returns the bit(8) literal for states; position i is job.AllStates[i].
 func Mask(states []job.State) string {
 	b := []byte("00000000")
 	for _, s := range states {
@@ -92,7 +81,6 @@ func Mask(states []job.State) string {
 	return string(b)
 }
 
-// ParseMask is the inverse of Mask; unknown or unset bits are ignored.
 func ParseMask(mask string) []job.State {
 	var out []job.State
 	for i, s := range job.AllStates {
@@ -103,8 +91,6 @@ func ParseMask(mask string) []job.State {
 	return out
 }
 
-// PeriodBucket returns the start of the period containing now, in integer
-// Unix seconds: floor(now / period) * period.
 func PeriodBucket(now time.Time, period time.Duration) int64 {
 	p := int64(period / time.Second)
 	if p <= 0 {
@@ -118,11 +104,7 @@ func PeriodBucket(now time.Time, period time.Duration) int64 {
 	return q * p
 }
 
-// Identity builds the identity object whose canonical form Postgres hashes
-// into unique_key: {"kind", "args"} plus "queue" when ByQueue and
-// "period" when ByPeriod. args must be a JSON value; with ByArgFields it must
-// be an object. Raw argument bytes are copied verbatim so numbers keep full
-// precision.
+// Identity builds the identity object that Postgres hashes into the unique key.
 func Identity(kind, queue string, args []byte, o Options, now time.Time) ([]byte, error) {
 	selected, err := selectArgs(args, o)
 	if err != nil {
@@ -185,7 +167,7 @@ func selectArgs(args []byte, o Options) ([]byte, error) {
 
 func mustString(s string) []byte {
 	b, err := json.Marshal(s)
-	if err != nil { // strings always marshal
+	if err != nil {
 		panic(err)
 	}
 	return b

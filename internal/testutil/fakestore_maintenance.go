@@ -11,7 +11,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// PromoteDue implements job.MaintenanceStore.
 func (s *FakeStore) PromoteDue(_ context.Context, now time.Time, limit int) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -40,7 +39,6 @@ func (s *FakeStore) sorted() []*job.Row {
 	return out
 }
 
-// StuckJobs implements job.MaintenanceStore.
 func (s *FakeStore) StuckJobs(_ context.Context, cutoff time.Time, limit int) ([]*job.Row, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -60,7 +58,6 @@ func (s *FakeStore) StuckJobs(_ context.Context, cutoff time.Time, limit int) ([
 	return out, nil
 }
 
-// Rescue implements job.MaintenanceStore.
 func (s *FakeStore) Rescue(_ context.Context, cutoff time.Time, cs []job.Completion) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -80,7 +77,6 @@ func (s *FakeStore) Rescue(_ context.Context, cutoff time.Time, cs []job.Complet
 	return n, nil
 }
 
-// DeleteFinalized implements job.MaintenanceStore.
 func (s *FakeStore) DeleteFinalized(_ context.Context, state job.State, cutoff time.Time, limit int) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -100,7 +96,6 @@ func (s *FakeStore) DeleteFinalized(_ context.Context, state job.State, cutoff t
 	return n, nil
 }
 
-// Reindex implements job.MaintenanceStore.
 func (s *FakeStore) Reindex(context.Context) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -110,7 +105,6 @@ func (s *FakeStore) Reindex(context.Context) (bool, error) {
 	return true, nil
 }
 
-// QueueDepths implements job.MaintenanceStore.
 func (s *FakeStore) QueueDepths(context.Context) ([]job.QueueDepth, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -131,7 +125,6 @@ func (s *FakeStore) QueueDepths(context.Context) ([]job.QueueDepth, error) {
 	return out, nil
 }
 
-// LastTicks implements job.MaintenanceStore.
 func (s *FakeStore) LastTicks(context.Context) (map[string]time.Time, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -149,7 +142,6 @@ func (s *FakeStore) LastTicks(context.Context) (map[string]time.Time, error) {
 	return out, nil
 }
 
-// EnqueueTick implements job.MaintenanceStore.
 func (s *FakeStore) EnqueueTick(_ context.Context, name string, tick time.Time, p job.InsertParams) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -167,7 +159,6 @@ func (s *FakeStore) EnqueueTick(_ context.Context, name string, tick time.Time, 
 	return true, nil
 }
 
-// MarkPeriodicStart implements job.MaintenanceStore.
 func (s *FakeStore) MarkPeriodicStart(_ context.Context, name string, now time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -188,7 +179,6 @@ func (s *FakeStore) MarkPeriodicStart(_ context.Context, name string, now time.T
 	return nil
 }
 
-// PruneTicks implements job.MaintenanceStore.
 func (s *FakeStore) PruneTicks(_ context.Context, cutoff time.Time) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -213,7 +203,6 @@ func (s *FakeStore) PruneTicks(_ context.Context, cutoff time.Time) (int, error)
 	return n, nil
 }
 
-// Ticks returns the enqueued ticks of a periodic job (not start markers), oldest first.
 func (s *FakeStore) Ticks(name string) []time.Time {
 	s.mu.Lock()
 	defer s.mu.Unlock()

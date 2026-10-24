@@ -19,7 +19,6 @@ import (
 	"github.com/thnhdatle/foreman/migrate"
 )
 
-// DefaultImage is the Postgres image used when FOREMAN_TEST_PG_IMAGE is unset.
 const DefaultImage = "postgres:17"
 
 // Database is a Postgres server shared by the tests of one package.
@@ -28,8 +27,7 @@ type Database struct {
 	container testcontainers.Container
 }
 
-// Start returns the server named by FOREMAN_TEST_DATABASE_URL, or starts a
-// container from FOREMAN_TEST_PG_IMAGE (default postgres:17).
+// Start returns the server named by FOREMAN_TEST_DATABASE_URL or starts a container.
 func Start(ctx context.Context) (*Database, error) {
 	if url := os.Getenv("FOREMAN_TEST_DATABASE_URL"); url != "" {
 		return &Database{URL: url}, nil
@@ -56,15 +54,13 @@ func Start(ctx context.Context) (*Database, error) {
 	return &Database{URL: url, container: ctr}, nil
 }
 
-// Close stops the container if this package started one.
 func (d *Database) Close() {
 	if d.container != nil {
 		_ = testcontainers.TerminateContainer(d.container)
 	}
 }
 
-// Main is a TestMain body for integration test packages: it starts the
-// database, runs the tests and checks for goroutine leaks.
+// Main is a TestMain body that starts the database and runs the tests.
 func Main(m *testing.M, db **Database) int {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	d, err := Start(ctx)
@@ -85,7 +81,6 @@ func Main(m *testing.M, db **Database) int {
 	return code
 }
 
-// LeakOptions ignores the background goroutines of testcontainers and pgx pools.
 func LeakOptions() []goleak.Option {
 	return []goleak.Option{
 		goleak.IgnoreAnyFunction("github.com/testcontainers/testcontainers-go.(*Reaper).connect.func1"),
@@ -97,7 +92,6 @@ func LeakOptions() []goleak.Option {
 	}
 }
 
-// Pool opens a pool on the database and closes it when the test ends.
 func (d *Database) Pool(tb testing.TB) *pgxpool.Pool {
 	tb.Helper()
 	cfg, err := pgxpool.ParseConfig(d.URL)
@@ -113,10 +107,7 @@ func (d *Database) Pool(tb testing.TB) *pgxpool.Pool {
 	return pool
 }
 
-// Schema creates a fresh schema with the Foreman migrations applied and
-// drops it when the test ends. Each test gets its own schema, so tests run
-// in parallel against one server without interfering (channels are
-// schema-prefixed too).
+// Schema creates a fresh migrated schema and drops it when the test ends.
 func (d *Database) Schema(tb testing.TB, pool *pgxpool.Pool) string {
 	tb.Helper()
 	b := make([]byte, 6)

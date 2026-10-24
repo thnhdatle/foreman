@@ -26,7 +26,7 @@ type node struct {
 	e        *elector.Elector
 	cancel   context.CancelFunc
 	done     chan error
-	services atomic.Int32 // running service instances
+	services atomic.Int32
 	starts   atomic.Int32
 	mu       sync.Mutex
 	changes  []bool
@@ -75,7 +75,6 @@ func (n *node) stop(t *testing.T) {
 	n.done <- nil
 }
 
-// settle waits until every elector goroutine is parked on the fake clock.
 func settle(t *testing.T, fc *clock.Fake, waiters int) {
 	t.Helper()
 	testutil.Eventually(t, func() bool { return fc.Waiters() >= waiters }, 2*time.Second)
@@ -91,7 +90,7 @@ func TestNew_ValidatesAndDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 5*time.Second, e.Interval(), "default TTL 15s, renew every TTL/3")
 	assert.False(t, e.IsLeader())
-	e.Crash() // never started: no-op
+	e.Crash()
 }
 
 func TestElector_SingleLeaderAndServices(t *testing.T) {
@@ -109,7 +108,6 @@ func TestElector_SingleLeaderAndServices(t *testing.T) {
 	assert.Equal(t, "a", holder)
 	assert.Equal(t, t0.Add(15*time.Second), expires)
 
-	// Renewal every TTL/3 keeps the lease ahead of the clock.
 	for i := 1; i <= 6; i++ {
 		fc.Advance(5 * time.Second)
 		settle(t, fc, 2)
@@ -137,7 +135,7 @@ func TestElector_ResignOnShutdownHandsOver(t *testing.T) {
 	assert.Empty(t, holder, "lease released on shutdown")
 	assert.Equal(t, int32(0), a.services.Load())
 	assert.Equal(t, []bool{true, false}, a.changeLog())
-	b.e.Wake() // the resign NOTIFY wakes other clients
+	b.e.Wake()
 	testutil.Eventually(t, b.e.IsLeader, time.Second)
 	assert.Equal(t, int32(1), b.services.Load())
 }
@@ -158,7 +156,6 @@ func TestElector_CrashAbandonsLeaseUntilExpiry(t *testing.T) {
 	assert.Equal(t, "a", holder, "lease abandoned, not released")
 	assert.Equal(t, t0.Add(15*time.Second), expires)
 
-	// b takes over within TTL + one acquisition interval.
 	elapsed := time.Duration(0)
 	for !b.e.IsLeader() && elapsed <= 20*time.Second {
 		settle(t, fc, 1)
@@ -178,11 +175,10 @@ func TestElector_RenewFailureStopsServicesImmediately(t *testing.T) {
 	a := startNode(t, "a", s, fc)
 	testutil.Eventually(t, a.e.IsLeader, time.Second)
 	settle(t, fc, 1)
-	s.FailNext(1) // next renew errors
+	s.FailNext(1)
 	fc.Advance(5 * time.Second)
 	testutil.Eventually(t, func() bool { return !a.e.IsLeader() }, time.Second)
 	assert.Equal(t, int32(0), a.services.Load())
-	// The lease is still ours, so the next attempt re-acquires it.
 	settle(t, fc, 1)
 	fc.Advance(5 * time.Second)
 	testutil.Eventually(t, a.e.IsLeader, time.Second)
@@ -197,7 +193,6 @@ func TestElector_LostLeaseToAnotherClient(t *testing.T) {
 	a := startNode(t, "a", s, fc)
 	testutil.Eventually(t, a.e.IsLeader, time.Second)
 	settle(t, fc, 1)
-	// Another client takes the lease (e.g. after clock skew made it look expired).
 	require.NoError(t, s.ReleaseLease(context.Background(), "default", "a"))
 	ok, err := s.AcquireLease(context.Background(), "default", "intruder", fc.Now(), time.Hour)
 	require.NoError(t, err)

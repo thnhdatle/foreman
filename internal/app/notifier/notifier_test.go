@@ -127,12 +127,11 @@ func TestNotifier_DispatchReconnectAndBackoff(t *testing.T) {
 	for _, ch := range []string{"insert", "control"} {
 		n.Subscribe(ch, func(p string) { mu.Lock(); got[ch] = append(got[ch], p); mu.Unlock() })
 	}
-	n.Subscribe("insert", func(string) {}) // several subscribers per channel
+	n.Subscribe("insert", func(string) {})
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- n.Run(ctx) }()
 
-	// Backoff with Rand=0 is half of min(100ms << (failures-1), 300ms): 50ms, 100ms, 150ms.
 	for _, d := range []time.Duration{50, 100, 150} {
 		testutil.Eventually(t, func() bool { return fc.Waiters() == 1 }, time.Second)
 		fc.Advance(d*time.Millisecond - time.Millisecond)
@@ -153,7 +152,7 @@ func TestNotifier_DispatchReconnectAndBackoff(t *testing.T) {
 	assert.Equal(t, []string{"default"}, got["insert"])
 	mu.Unlock()
 
-	l.drop <- struct{}{} // connection lost after being established: backoff restarts at the minimum
+	l.drop <- struct{}{}
 	testutil.Eventually(t, func() bool { return fc.Waiters() == 1 }, time.Second)
 	assert.False(t, n.Connected())
 	fc.Advance(50 * time.Millisecond)

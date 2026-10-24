@@ -20,7 +20,6 @@ import (
 
 func filterIDs(ids ...int64) pgstore.Filter { return pgstore.Filter{IDs: ids} }
 
-// jobInState creates one job and moves it to st.
 func jobInState(t *testing.T, e *env, st job.State) int64 {
 	t.Helper()
 	switch st {
@@ -93,7 +92,6 @@ func TestJobUpdate_DiscardAndRetry(t *testing.T) {
 	for _, r := range rows {
 		assert.Equal(t, job.StateDiscarded, r.State)
 	}
-	// The worker of the discarded running job can no longer complete it.
 	applied, err := e.store.Complete(ctx, "c1", []job.Completion{{ID: runningID, Attempt: 1, State: job.StateCompleted, FinalizedAt: t0, At: t0}})
 	require.NoError(t, err)
 	assert.Empty(t, applied)
@@ -125,7 +123,7 @@ func TestJobUpdate_RetryUniqueConflict(t *testing.T) {
 	first := e.insert(t, uniqueParams("u", `{}`, opts))[0].Row.ID
 	_, err := e.store.JobUpdate(ctx, pgstore.OpDiscard, filterIDs(first), t0, 10)
 	require.NoError(t, err)
-	e.insert(t, uniqueParams("u", `{}`, opts)) // discarded is outside the default states: a new job
+	e.insert(t, uniqueParams("u", `{}`, opts))
 	_, err = e.store.JobUpdate(ctx, pgstore.OpRetry, filterIDs(first), t0, 10)
 	require.ErrorIs(t, err, job.ErrUniqueConflict)
 }

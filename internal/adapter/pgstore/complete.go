@@ -12,12 +12,8 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// guard is the completion guard: only the attempt this client
-// fetched, still running, may be updated.
 const guard = `j.state = 'running' AND j.attempt = u.attempt AND j.attempted_by[cardinality(j.attempted_by)] = @cid`
 
-// applyCompletions writes a batch of results in one statement. A pending
-// cancel request turns any result into cancelled.
 const applyCompletions = `
 WITH u AS (
   SELECT * FROM unnest(@ids::bigint[], @attempts::int[], @states::text[], @scheduled::timestamptz[],
@@ -87,7 +83,7 @@ func (a completionArrays) args() pgx.NamedArgs {
 	}
 }
 
-// Complete implements job.CompletionWriter.
+// Complete writes the results of finished attempts.
 func (s *Store) Complete(ctx context.Context, clientID string, cs []job.Completion) ([]int64, error) {
 	if len(cs) == 0 {
 		return nil, nil
@@ -106,8 +102,6 @@ func (s *Store) Complete(ctx context.Context, clientID string, cs []job.Completi
 	return ids, translate("complete", err)
 }
 
-// CompleteTx marks one attempt completed inside the caller's transaction
-// (foreman.CompleteTx). It returns job.ErrStale when the guard rejects it.
 func (s *Store) CompleteTx(ctx context.Context, tx pgx.Tx, clientID string, ref job.Ref, now time.Time) error {
 	c := job.Completion{ID: ref.ID, Attempt: ref.Attempt, State: job.StateCompleted, FinalizedAt: now, At: now}
 	a, err := toCompletionArrays([]job.Completion{c})
@@ -131,7 +125,6 @@ UPDATE {{s}}.foreman_jobs j SET heartbeat_at = @now
 FROM unnest(@ids::bigint[], @attempts::int[]) AS u(id, attempt)
 WHERE j.id = u.id AND ` + guard
 
-// Heartbeat implements job.HeartbeatWriter.
 func (s *Store) Heartbeat(ctx context.Context, clientID string, now time.Time, refs []job.Ref) (int, error) {
 	if len(refs) == 0 {
 		return 0, nil
@@ -148,7 +141,6 @@ func (s *Store) Heartbeat(ctx context.Context, clientID string, now time.Time, r
 const cancelRequested = `
 SELECT id FROM {{s}}.foreman_jobs WHERE id = ANY($1) AND state = 'running' AND cancel_requested_at IS NOT NULL`
 
-// CancelRequested implements job.CancelPoller.
 func (s *Store) CancelRequested(ctx context.Context, ids []int64) ([]int64, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -170,7 +162,6 @@ ON CONFLICT (name) DO UPDATE SET
 WHERE l.expires_at < @now OR l.leader_id = @id
 RETURNING l.leader_id`
 
-// AcquireLease implements job.LeaseStore.
 func (s *Store) AcquireLease(ctx context.Context, name, id string, now time.Time, ttl time.Duration) (bool, error) {
 	args := pgx.NamedArgs{"name": name, "id": id, "now": now, "expires": now.Add(ttl)}
 	r, err := s.pool.Query(ctx, s.sql(acquireLease), args)
@@ -183,7 +174,6 @@ func (s *Store) AcquireLease(ctx context.Context, name, id string, now time.Time
 
 const renewLease = `UPDATE {{s}}.foreman_leader SET expires_at = $3 WHERE name = $1 AND leader_id = $2`
 
-// RenewLease implements job.LeaseStore.
 func (s *Store) RenewLease(ctx context.Context, name, id string, now time.Time, ttl time.Duration) (bool, error) {
 	tag, err := s.pool.Exec(ctx, s.sql(renewLease), name, id, now.Add(ttl))
 	if err != nil {
@@ -196,13 +186,11 @@ const releaseLease = `
 WITH d AS (DELETE FROM {{s}}.foreman_leader WHERE name = $1 AND leader_id = $2 RETURNING name)
 SELECT pg_notify($3, d.name) FROM d`
 
-// ReleaseLease implements job.LeaseStore; it notifies the other clients.
 func (s *Store) ReleaseLease(ctx context.Context, name, id string) error {
 	_, err := s.pool.Exec(ctx, s.sql(releaseLease), name, id, s.names.LeaderChannel)
 	return translate("release lease", err)
 }
 
-// Leader is the current lease holder.
 type Leader struct {
 	Name      string
 	LeaderID  string
@@ -210,7 +198,6 @@ type Leader struct {
 	ExpiresAt time.Time
 }
 
-// LeaderGet returns the lease row, or job.ErrNotFound when there is none.
 func (s *Store) LeaderGet(ctx context.Context, name string) (*Leader, error) {
 	var l Leader
 	const q = `SELECT name, leader_id, elected_at, expires_at FROM {{s}}.foreman_leader WHERE name = $1`

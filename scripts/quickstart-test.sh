@@ -1,13 +1,10 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Clones the repository into a temp dir and runs the README quickstart verbatim:
-# every command inside the block between <!-- quickstart:start --> and
-# <!-- quickstart:end --> is executed in order and must succeed in < 5 minutes.
+# Clones the repository and runs the README quickstart.
 set -euo pipefail
 
 repo="$(cd "$(dirname "$0")/.." && pwd)"
 tmp=$(mktemp -d)
-# QUICKSTART_KEEP_STACK=1 leaves the compose stack up (the acceptance runner owns it).
 # shellcheck disable=SC2329 # invoked by the EXIT trap
 cleanup() {
   cd /

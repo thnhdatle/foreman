@@ -20,7 +20,7 @@ import (
 const (
 	maxTagLength            = 255
 	maxConcurrencyKeyLength = 255
-	maxTimeout              = 24 * 24 * time.Hour // fits timeout_ms (int4)
+	maxTimeout              = 24 * 24 * time.Hour
 )
 
 // Insert inserts one job. It is committed immediately.
@@ -32,8 +32,7 @@ func (c *Client) Insert(ctx context.Context, args JobArgs, opts *InsertOpts) (*I
 	return res[0], nil
 }
 
-// InsertTx inserts one job in tx: the job exists only if tx commits, and
-// workers are notified on commit.
+// InsertTx inserts one job in tx.
 func (c *Client) InsertTx(ctx context.Context, tx pgx.Tx, args JobArgs, opts *InsertOpts) (*InsertResult, error) {
 	if tx == nil {
 		return nil, fmt.Errorf("%w: nil transaction", ErrInvalidArgument)
@@ -45,8 +44,7 @@ func (c *Client) InsertTx(ctx context.Context, tx pgx.Tx, args JobArgs, opts *In
 	return res[0], nil
 }
 
-// InsertMany inserts a batch in one transaction; batches of 10 or more go
-// through COPY. Results follow the order of params.
+// InsertMany inserts a batch in one transaction.
 func (c *Client) InsertMany(ctx context.Context, params []InsertParams) ([]*InsertResult, error) {
 	return c.insert(ctx, c.store.Pool(), params)
 }
@@ -107,8 +105,6 @@ func (c *Client) insertNow(ctx context.Context, db pgstore.DB, params []InsertPa
 	return res, nil
 }
 
-// buildInsert resolves options (explicit > args defaults > worker > client
-// defaults) and validates the job.
 func (c *Client) buildInsert(args JobArgs, explicit *InsertOpts, now time.Time) (job.InsertParams, error) {
 	if args == nil {
 		return job.InsertParams{}, fmt.Errorf("%w: nil args", ErrInvalidArgument)
@@ -244,12 +240,8 @@ func toUniqueOptions(u *UniqueOpts) unique.Options {
 	}
 }
 
-// servedRefresh is how often the list of queues served by running clients
-// is re-read for the unserved-queue metric.
 const servedRefresh = 30 * time.Second
 
-// countUnserved increments foreman_jobs_unserved_queue_total when no running
-// client reported serving queue in the last minute.
 func (c *Client) countUnserved(ctx context.Context, queue string) {
 	if _, ok := c.cfg.Queues[queue]; ok {
 		return
@@ -265,7 +257,7 @@ func (c *Client) countUnserved(ctx context.Context, queue string) {
 				c.served[n] = struct{}{}
 			}
 		}
-		c.servedAt = now // also after an error: do not query on every insert
+		c.servedAt = now
 	}
 	if _, ok := c.served[queue]; !ok {
 		c.metrics.Unserved.WithLabelValues(c.metrics.Queue(queue)).Inc()

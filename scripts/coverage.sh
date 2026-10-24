@@ -13,11 +13,10 @@ CGO_ENABLED=1 go test -race -count=1 -tags integration -timeout 40m \
 }
 
 module=github.com/thnhdatle/foreman
-# Excluded: cmd/, bench/, acceptance/, examples/, generated code, test-only helpers.
 {
   head -n 1 coverage/all.out
   tail -n +2 coverage/all.out \
-    | grep -vE "^${module}/(cmd|bench|acceptance|examples|research)/" \
+    | grep -vE "^${module}/(cmd|examples)/" \
     | grep -vE "^${module}/internal/testutil/" \
     | grep -vE '_gen\.go:|\.pb\.go:'
 } >coverage/filtered.out

@@ -10,39 +10,27 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/schedule"
 )
 
-// PeriodicGrace is added to every catch-up window: a tick enqueued this late
-// during normal operation is not considered missed.
 const PeriodicGrace = 15 * time.Second
 
-// maxTicksPerRun bounds the ticks one periodic job enqueues per run.
 const maxTicksPerRun = 100
 
-// PeriodicJob is one registered periodic job.
 type PeriodicJob struct {
 	Name       string
 	Schedule   schedule.Schedule
 	CatchUp    time.Duration
 	RunOnStart bool
-	// Build returns the job to insert for tick.
-	Build func(tick time.Time) (job.InsertParams, error)
+	Build      func(tick time.Time) (job.InsertParams, error)
 }
 
-// Periodic enqueues periodic jobs exactly once per tick: each tick
-// is recorded in foreman_periodic_ticks under a unique constraint in the same
-// transaction as the job, so overlapping leaders cannot enqueue it twice.
-// After a leader gap, missed ticks within CatchUp are enqueued oldest first
-// and older ones are skipped and counted.
+// Periodic enqueues each periodic job once per tick.
 type Periodic struct {
 	Base
-	Jobs     []PeriodicJob
-	Interval time.Duration
-	// OnSkipped receives the number of ticks skipped beyond the catch-up window.
-	OnSkipped func(name string, n int)
-	// OnEnqueued is called for each tick this leader inserted.
+	Jobs       []PeriodicJob
+	Interval   time.Duration
+	OnSkipped  func(name string, n int)
 	OnEnqueued func(name string, tick time.Time)
 }
 
-// Run enqueues due ticks every Interval (default 1s) while leader.
 func (p *Periodic) Run(ctx context.Context) error {
 	if len(p.Jobs) == 0 {
 		return nil
@@ -65,10 +53,6 @@ func (p *Periodic) Run(ctx context.Context) error {
 	})
 }
 
-// start loads the last enqueued tick of every job. A job with no history
-// starts from now (no catch-up of ticks before it was ever scheduled); a
-// start marker is recorded so that a later leader catches up from here even
-// if this one dies before the first tick.
 func (p *Periodic) start(ctx context.Context) (map[string]time.Time, error) {
 	stored, err := p.Store.LastTicks(ctx)
 	if err != nil {
@@ -80,7 +64,6 @@ func (p *Periodic) start(ctx context.Context) (map[string]time.Time, error) {
 		t, ok := stored[j.Name]
 		ranOnStart := j.RunOnStart && p.enqueue(ctx, j, now)
 		if !ok {
-			// The run-on-start tick is history enough; otherwise leave a marker.
 			if !ranOnStart {
 				if err := p.Store.MarkPeriodicStart(ctx, j.Name, now); err != nil {
 					return nil, err //nolint:wrapcheck // the store already adds context
@@ -106,19 +89,17 @@ func (p *Periodic) enqueueDue(ctx context.Context, j PeriodicJob, last map[strin
 	n := 0
 	for _, tick := range due {
 		if !p.enqueue(ctx, j, tick) {
-			return n // retried next run; last is not advanced past a failed tick
+			return n
 		}
 		last[j.Name] = tick
 		n++
 	}
 	if len(due) == 0 && skipped > 0 {
-		// Every missed tick was skipped: move past them.
 		last[j.Name] = p.Clock.Now().Add(-j.CatchUp - PeriodicGrace)
 	}
 	return n
 }
 
-// enqueue inserts one tick; it returns false on error.
 func (p *Periodic) enqueue(ctx context.Context, j PeriodicJob, tick time.Time) bool {
 	params, err := j.Build(tick)
 	if err != nil {

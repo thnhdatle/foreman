@@ -13,15 +13,11 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/job"
 )
 
-// ErrInjected is returned by FakeStore when a failure is injected.
 var ErrInjected = errors.New("fakestore: injected failure")
 
-// FakeStore is an in-memory implementation of the job store ports with the
-// same semantics as the Postgres adapter: fetch order, per-key limits, the
-// completion guard, leases and periodic ticks. One mutex makes every
-// operation atomic, which models row locks and advisory locks.
+// FakeStore is an in-memory job store with the same semantics as the Postgres adapter.
 type FakeStore struct {
-	mu        sync.Mutex // protects every field below
+	mu        sync.Mutex
 	nextID    int64
 	jobs      map[int64]*job.Row
 	paused    map[string]bool
@@ -29,7 +25,7 @@ type FakeStore struct {
 	ticks     map[string]map[time.Time]bool
 	markers   map[string]map[time.Time]bool
 	failNext  int
-	FetchHook func(rows []*job.Row) // called with fetched rows while the lock is held
+	FetchHook func(rows []*job.Row)
 }
 
 type fakeLease struct {
@@ -44,7 +40,6 @@ func NewFakeStore() *FakeStore {
 	}
 }
 
-// FailNext makes the next n operations fail with ErrInjected.
 func (s *FakeStore) FailNext(n int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -59,7 +54,6 @@ func (s *FakeStore) failed() bool {
 	return false
 }
 
-// Insert adds a job and returns its id.
 func (s *FakeStore) Insert(p job.InsertParams) int64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -80,7 +74,6 @@ func (s *FakeStore) insertLocked(p job.InsertParams) int64 {
 	return s.nextID
 }
 
-// Job returns a copy of a job.
 func (s *FakeStore) Job(id int64) (job.Row, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -91,7 +84,6 @@ func (s *FakeStore) Job(id int64) (job.Row, bool) {
 	return *r, true
 }
 
-// Jobs returns copies of all jobs ordered by id.
 func (s *FakeStore) Jobs() []job.Row {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -103,7 +95,6 @@ func (s *FakeStore) Jobs() []job.Row {
 	return out
 }
 
-// Update mutates a job under the store lock.
 func (s *FakeStore) Update(id int64, fn func(*job.Row)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -112,14 +103,12 @@ func (s *FakeStore) Update(id int64, fn func(*job.Row)) {
 	}
 }
 
-// SetPaused pauses or resumes a queue.
 func (s *FakeStore) SetPaused(queue string, paused bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.paused[queue] = paused
 }
 
-// RunningByKey counts running jobs per (queue, key).
 func (s *FakeStore) RunningByKey(queue string) map[string]int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -154,7 +143,6 @@ func (s *FakeStore) available(queue string, key *string) []*job.Row {
 	return out
 }
 
-// Fetch implements job.Fetcher.
 func (s *FakeStore) Fetch(_ context.Context, p job.FetchParams) ([]*job.Row, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -202,7 +190,6 @@ func (s *FakeStore) Fetch(_ context.Context, p job.FetchParams) ([]*job.Row, err
 	return out, nil
 }
 
-// KeyStats implements job.Fetcher.
 func (s *FakeStore) KeyStats(_ context.Context, queue string, limit int, _ bool) ([]job.KeyStat, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -235,7 +222,6 @@ func (s *FakeStore) KeyStats(_ context.Context, queue string, limit int, _ bool)
 	return out[:min(limit, len(out))], nil
 }
 
-// QueueHeartbeat implements job.Fetcher.
 func (s *FakeStore) QueueHeartbeat(_ context.Context, queue string, _ time.Time) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -254,7 +240,6 @@ func apply(r *job.Row, c job.Completion) {
 	r.State = c.State
 	finalized := c.FinalizedAt
 	if r.CancelRequestedAt != nil && c.State != job.StateCancelled {
-		// Mirrors the SQL CASE: a requested cancel wins whatever Work returned.
 		r.State = job.StateCancelled
 		finalized = c.At
 	}
@@ -270,7 +255,6 @@ func apply(r *job.Row, c job.Completion) {
 	}
 }
 
-// Complete implements job.CompletionWriter.
 func (s *FakeStore) Complete(_ context.Context, clientID string, cs []job.Completion) ([]int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -289,7 +273,6 @@ func (s *FakeStore) Complete(_ context.Context, clientID string, cs []job.Comple
 	return applied, nil
 }
 
-// Heartbeat implements job.HeartbeatWriter.
 func (s *FakeStore) Heartbeat(_ context.Context, clientID string, now time.Time, refs []job.Ref) (int, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -307,7 +290,6 @@ func (s *FakeStore) Heartbeat(_ context.Context, clientID string, now time.Time,
 	return n, nil
 }
 
-// CancelRequested implements job.CancelPoller.
 func (s *FakeStore) CancelRequested(_ context.Context, ids []int64) ([]int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -323,7 +305,6 @@ func (s *FakeStore) CancelRequested(_ context.Context, ids []int64) ([]int64, er
 	return out, nil
 }
 
-// AcquireLease implements job.LeaseStore.
 func (s *FakeStore) AcquireLease(_ context.Context, _, id string, now time.Time, ttl time.Duration) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -337,7 +318,6 @@ func (s *FakeStore) AcquireLease(_ context.Context, _, id string, now time.Time,
 	return false, nil
 }
 
-// RenewLease implements job.LeaseStore.
 func (s *FakeStore) RenewLease(_ context.Context, _, id string, now time.Time, ttl time.Duration) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -351,7 +331,6 @@ func (s *FakeStore) RenewLease(_ context.Context, _, id string, now time.Time, t
 	return true, nil
 }
 
-// ReleaseLease implements job.LeaseStore.
 func (s *FakeStore) ReleaseLease(_ context.Context, _, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -364,7 +343,6 @@ func (s *FakeStore) ReleaseLease(_ context.Context, _, id string) error {
 	return nil
 }
 
-// LeaseHolder returns the current lease holder id and expiry.
 func (s *FakeStore) LeaseHolder() (string, time.Time) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

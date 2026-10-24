@@ -1,4 +1,4 @@
-# Dependencies for integration examples, acceptance tests and benchmarks.
+# Dependencies for the examples and integration tests.
 # Foreman is a library: there is no Foreman service in this stack; clients run
 # natively on the host and connect to Postgres directly (port 55432) or through
 # Toxiproxy (port 55433) for connection-loss tests.

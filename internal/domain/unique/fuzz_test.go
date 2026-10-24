@@ -10,7 +10,6 @@ import (
 	"github.com/thnhdatle/foreman/internal/domain/unique"
 )
 
-// FuzzIdentity: for any args, Identity never panics and returns valid JSON.
 func FuzzIdentity(f *testing.F) {
 	for _, s := range []string{`{"a":1}`, `{"a":9007199254740993,"b":"x"}`, `[1,2]`, `null`, `{bad`, `{"a":{"b":[1.5]}}`} {
 		f.Add([]byte(s), true, "a")

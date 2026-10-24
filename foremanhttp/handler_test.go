@@ -19,7 +19,6 @@ import (
 	"github.com/thnhdatle/foreman"
 )
 
-// The OpenAPI document and the registered routes must match.
 func TestRoutesMatchOpenAPI(t *testing.T) {
 	t.Parallel()
 	data, err := os.ReadFile("../api/openapi.yaml")
@@ -67,7 +66,7 @@ func TestHandler_ValidationAndEnvelope(t *testing.T) {
 		{http.MethodPost, "/v1/jobs/-1/retry", http.StatusBadRequest, "invalid_argument"},
 		{http.MethodPost, "/v1/queues/bad%20name/pause", http.StatusBadRequest, "invalid_argument"},
 		{http.MethodGet, "/v1/nothing", http.StatusNotFound, "not_found"},
-		{http.MethodGet, "/v1/jobs/1", http.StatusInternalServerError, "internal"}, // database unreachable
+		{http.MethodGet, "/v1/jobs/1", http.StatusInternalServerError, "internal"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.method+" "+tc.target, func(t *testing.T) {

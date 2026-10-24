@@ -115,14 +115,15 @@ shutdown, retries, cron, unique jobs and fairness are covered in the [guides](do
 
 ## Performance
 
-MacBook Pro M3 Pro, Postgres 17, medians of 3 runs. Method and full results in
-[bench/RESULTS.md](bench/RESULTS.md).
+MacBook Pro M3 Pro 36 GB, Postgres 17 in Docker (8 CPU / 20 GB), Foreman v0.1.0, median of 3 runs.
+Clients run natively; load is open-model (inserts at a fixed rate, never waiting for workers).
 
 | Scenario | Result |
 |---|---|
-| Throughput, no-op jobs, 4 clients × 50 workers | 35,518 jobs/s |
-| Pickup latency p99 at 1,000 inserts/s | 8.7 ms |
+| Throughput, no-op jobs, 4 clients × 50 workers, 5 min | 35,518 jobs/s |
+| Pickup latency p99 at 1,000 inserts/s, 2 min | 8.7 ms |
 | Small tenant p95 wait behind a 240k backlog, fair vs unfair | 38 ms vs 64.6 s |
+| 1 h soak at 1,000 jobs/s: table size drift, p99 drift | 0.3%, -0.1% |
 
 ## Documentation
 

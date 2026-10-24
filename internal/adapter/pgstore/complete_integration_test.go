@@ -20,7 +20,6 @@ func running(t *testing.T, e *env, client string, n int) []*job.Row {
 	ps := make([]job.InsertParams, n)
 	for i := range ps {
 		ps[i] = params("k", "q")
-		// Sort ahead of other fixtures so exactly these jobs are fetched.
 		ps[i].Priority = 1
 		ps[i].ScheduledAt = t0.Add(-time.Hour)
 	}
@@ -40,7 +39,7 @@ func TestComplete_AppliesEveryOutcomeUnderGuard(t *testing.T) {
 		{ID: rows[1].ID, Attempt: 1, State: job.StateRetryable, ScheduledAt: later, Error: errEntry, At: t0},
 		{ID: rows[2].ID, Attempt: 1, State: job.StateScheduled, ScheduledAt: later, AttemptDelta: -1, At: t0},
 		{ID: rows[3].ID, Attempt: 1, State: job.StateDiscarded, FinalizedAt: t0, Error: errEntry, At: t0},
-		{ID: rows[4].ID, Attempt: 2, State: job.StateCompleted, FinalizedAt: t0, At: t0}, // wrong attempt: stale
+		{ID: rows[4].ID, Attempt: 2, State: job.StateCompleted, FinalizedAt: t0, At: t0},
 	}
 	applied, err := e.store.Complete(ctx, "c1", cs)
 	require.NoError(t, err)
@@ -69,7 +68,6 @@ func TestComplete_AppliesEveryOutcomeUnderGuard(t *testing.T) {
 	assert.Len(t, r.Errors, 1)
 	assert.Equal(t, job.StateRunning, get(rows[4].ID).State)
 
-	// A second completion of the same attempt is stale.
 	applied, err = e.store.Complete(ctx, "c1", cs[:1])
 	require.NoError(t, err)
 	assert.Empty(t, applied)

@@ -29,7 +29,6 @@ var (
 
 func TestMain(m *testing.M) {
 	flag.Parse()
-	// Golden output must not depend on the host time zone.
 	time.Local = time.UTC
 	os.Exit(pgtest.Main(m, &db))
 }
@@ -40,7 +39,6 @@ type reportArgs struct {
 
 func (reportArgs) Kind() string { return "report" }
 
-// seed creates a deterministic database: ids start at 1, times come from a fake clock.
 func seed(t *testing.T) map[string]string {
 	t.Helper()
 	ctx := context.Background()

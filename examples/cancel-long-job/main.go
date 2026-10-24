@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
-// Command cancel-long-job cancels a running job: its context is cancelled
-// and it ends as cancelled whatever Work returns.
+// Command cancel-long-job cancels a running job.
 package main
 
 import (
@@ -15,12 +14,10 @@ import (
 	"github.com/thnhdatle/foreman/examples/internal/exampledb"
 )
 
-// ExportArgs describe a long export.
 type ExportArgs struct {
 	Rows int `json:"rows"`
 }
 
-// Kind identifies the job type.
 func (ExportArgs) Kind() string { return "export" }
 
 func main() {
@@ -46,7 +43,7 @@ func run(ctx context.Context) error {
 			case <-ctx.Done():
 				fmt.Printf("export stopped after %d rows: %v\n", i, context.Cause(ctx))
 				return ctx.Err()
-			case <-time.After(10 * time.Millisecond): // export one row
+			case <-time.After(10 * time.Millisecond):
 			}
 			if i%100 == 0 {
 				foreman.Heartbeat(ctx)

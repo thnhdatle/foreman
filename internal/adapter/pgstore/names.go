@@ -9,31 +9,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// DefaultSchema is the schema used when none is configured.
 const DefaultSchema = "public"
 
 var schemaRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]{0,62}$`)
 
-// Names are the schema-dependent identifiers of one Foreman installation.
 type Names struct {
-	// Schema is the unquoted schema name.
-	Schema string
-	// Quoted is the schema as a quoted SQL identifier.
-	Quoted string
-	// InsertChannel receives the queue name when available jobs are inserted.
-	InsertChannel string
-	// ControlChannel receives cancel, pause and resume commands as JSON.
+	Schema         string
+	Quoted         string
+	InsertChannel  string
 	ControlChannel string
-	// LeaderChannel is notified when a leader resigns.
-	LeaderChannel string
-	// LockPrefix scopes advisory lock keys to the schema ("" for public).
-	LockPrefix string
+	LeaderChannel  string
+	LockPrefix     string
 }
 
-// NewNames validates schema and derives the identifiers. Channels keep the
-// documented names (foreman_insert, foreman_control) in the public schema and are
-// prefixed with the schema name otherwise, so installations sharing a
-// database do not wake each other.
 func NewNames(schema string) (Names, error) {
 	if schema == "" {
 		schema = DefaultSchema

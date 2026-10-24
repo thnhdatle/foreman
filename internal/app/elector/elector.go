@@ -14,34 +14,25 @@ import (
 	"github.com/thnhdatle/foreman/internal/platform/clock"
 )
 
-// Defaults.
 const (
 	DefaultName           = "default"
 	DefaultTTL            = 15 * time.Second
 	DefaultReleaseTimeout = 5 * time.Second
 )
 
-// Config configures an Elector.
 type Config struct {
-	Name     string
-	ClientID string
-	// TTL is the lease duration; the lease is renewed every TTL/3.
-	TTL   time.Duration
-	Store job.LeaseStore
-	Clock clock.Clock
-	// Services runs the leader-only services until its context is cancelled.
-	Services func(ctx context.Context)
-	// OnChange is called with true when leadership is gained and false when lost.
+	Name           string
+	ClientID       string
+	TTL            time.Duration
+	Store          job.LeaseStore
+	Clock          clock.Clock
+	Services       func(ctx context.Context)
 	OnChange       func(leader bool)
 	Logger         *slog.Logger
 	ReleaseTimeout time.Duration
 }
 
-// Elector holds a lease row to elect one leader per cluster. Clients that are
-// not leader try to acquire the lease every TTL/3 (and on Wake); the leader
-// renews it every TTL/3 and stops its services immediately when a renewal
-// fails. On shutdown the lease is released so another client can
-// take over at once.
+// Elector holds a lease to elect one leader and runs the leader services while it holds it.
 type Elector struct {
 	cfg     Config
 	wake    chan struct{}
@@ -74,10 +65,8 @@ func New(cfg Config) (*Elector, error) {
 	}, nil
 }
 
-// IsLeader reports whether this client currently holds the lease.
 func (e *Elector) IsLeader() bool { return e.leader.Load() }
 
-// Wake triggers an acquisition attempt now (another client resigned).
 func (e *Elector) Wake() {
 	select {
 	case e.wake <- struct{}{}:
@@ -85,10 +74,9 @@ func (e *Elector) Wake() {
 	}
 }
 
-// Interval is the renew and acquisition period, TTL/3.
 func (e *Elector) Interval() time.Duration { return e.cfg.TTL / 3 }
 
-// Run campaigns until ctx is cancelled, then resigns.
+// Run competes for the lease until ctx is cancelled, then releases it.
 func (e *Elector) Run(ctx context.Context) error {
 	e.started.Store(true)
 	defer close(e.exited)
@@ -108,7 +96,6 @@ func (e *Elector) Run(ctx context.Context) error {
 	}
 }
 
-// term is one period of leadership: the running services and their cancel.
 type term struct {
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -116,7 +103,6 @@ type term struct {
 
 func (e *Elector) step(ctx context.Context, t *term) *term {
 	now := e.cfg.Clock.Now()
-	// A lease call must finish well within the lease; the timeout is real time.
 	callCtx, callCancel := context.WithTimeout(ctx, e.Interval())
 	defer callCancel()
 	if t != nil {
@@ -154,7 +140,6 @@ func (e *Elector) step(ctx context.Context, t *term) *term {
 	return t
 }
 
-// stepDown stops leader services and, when release is true, resigns.
 func (e *Elector) stepDown(ctx context.Context, t *term, release bool) {
 	if t == nil {
 		return
@@ -168,7 +153,6 @@ func (e *Elector) stepDown(ctx context.Context, t *term, release bool) {
 	if !release {
 		return
 	}
-	// Resigning happens during shutdown, after ctx is cancelled.
 	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), e.cfg.ReleaseTimeout)
 	defer cancel()
 	if err := e.cfg.Store.ReleaseLease(rctx, e.cfg.Name, e.cfg.ClientID); err != nil {
@@ -176,10 +160,7 @@ func (e *Elector) stepDown(ctx context.Context, t *term, release bool) {
 	}
 }
 
-// Crash simulates a leader crash for tests (crash seam): it stops
-// the leader services immediately and abandons the lease without resigning,
-// so other clients take over only after it expires. Run returns. Crash waits
-// until Run has stopped; it is a no-op if Run was never started.
+// Crash stops the leader services and drops the lease without releasing it.
 func (e *Elector) Crash() {
 	e.crashed.Do(func() { close(e.crash) })
 	if e.started.Load() {

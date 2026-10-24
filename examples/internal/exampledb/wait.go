@@ -10,7 +10,6 @@ import (
 	"github.com/thnhdatle/foreman"
 )
 
-// WaitState polls until job id reaches state or timeout passes.
 func WaitState(ctx context.Context, c *foreman.Client, id int64, state foreman.State, timeout time.Duration) (
 	*foreman.JobRow, error,
 ) {

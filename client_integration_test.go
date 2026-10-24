@@ -108,7 +108,6 @@ func TestClient_RunsJobsAndRecordsOutcomes(t *testing.T) {
 	r = waitState(t, c, exhausted, StateDiscarded)
 	assert.Equal(t, 2, r.Attempt)
 
-	// Dead letter: retry moves it back with attempt reset.
 	rr, err := c.JobRetry(ctx, exhausted)
 	require.NoError(t, err)
 	assert.Equal(t, StateAvailable, rr.State)
@@ -140,7 +139,6 @@ func TestClient_InsertTxOnlyOnCommit(t *testing.T) {
 	_, err = c.InsertTx(ctx, tx, countArgs{N: 4}, nil)
 	require.NoError(t, err)
 	require.NoError(t, tx.Commit(ctx))
-	// NOTIFY on commit wakes the producer although FetchInterval is 1h.
 	testutil.Eventually(t, func() bool { return ran.Load() == 1 }, 10*time.Second)
 	list, err := c.JobList(ctx, nil)
 	require.NoError(t, err)
@@ -289,7 +287,7 @@ func TestClient_CancelInEachState(t *testing.T) {
 		return ctx.Err()
 	}))
 	owner := e.started(t, Config{Queues: map[string]QueueConfig{"default": fastQueue(1)}, Workers: workers})
-	admin := e.client(t, Config{}) // producer-only client on the same database
+	admin := e.client(t, Config{})
 
 	running, err := owner.Insert(ctx, countArgs{N: 1}, nil)
 	require.NoError(t, err)
@@ -344,7 +342,7 @@ func TestClient_PauseResumeAcrossTwoClients(t *testing.T) {
 		_, err := b.Insert(ctx, countArgs{N: i}, nil)
 		require.NoError(t, err)
 	}
-	deadline := time.Now().Add(time.Second) // several fetch intervals while paused
+	deadline := time.Now().Add(time.Second)
 	testutil.Eventually(t, func() bool { return time.Now().After(deadline) }, 2*time.Second)
 	assert.Zero(t, ran.Load())
 	qs, err := a.QueueList(ctx)
@@ -400,7 +398,7 @@ func TestClient_CompleteTxAndJobWork(t *testing.T) {
 	_, err = c.JobWork(ctx, other.Job.ID)
 	require.ErrorIs(t, err, ErrNoWorker)
 	require.ErrorIs(t, CompleteTx[countArgs](ctx, nil, &Job[countArgs]{}), ErrNotInWorker)
-	Heartbeat(ctx) // no-op outside Work
+	Heartbeat(ctx)
 }
 
 type recordingMiddleware struct {
@@ -469,7 +467,7 @@ func TestClient_StartStopLifecycle(t *testing.T) {
 	var finished atomic.Int32
 	workers := NewWorkers()
 	AddWorker(workers, WorkFunc[countArgs](func(ctx context.Context, j *Job[countArgs]) error {
-		if j.Args.N == 2 { // ignores release: only cancellation ends it
+		if j.Args.N == 2 {
 			<-ctx.Done()
 			return ctx.Err()
 		}
@@ -489,7 +487,6 @@ func TestClient_StartStopLifecycle(t *testing.T) {
 	require.NoError(t, err)
 	waitState(t, c, res.Job.ID, StateRunning)
 
-	// Graceful stop waits for the running job.
 	stopped := make(chan error, 1)
 	go func() { stopped <- c.Stop(context.Background()) }()
 	close(release)
@@ -497,7 +494,6 @@ func TestClient_StartStopLifecycle(t *testing.T) {
 	assert.Equal(t, int32(1), finished.Load())
 	waitState(t, c, res.Job.ID, StateCompleted)
 
-	// Stop with a deadline cancels jobs that do not finish in time.
 	require.NoError(t, c.Start(ctx))
 	res, err = c.Insert(ctx, countArgs{N: 2}, nil)
 	require.NoError(t, err)

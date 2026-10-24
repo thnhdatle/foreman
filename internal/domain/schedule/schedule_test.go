@@ -70,7 +70,7 @@ func TestParseCron_Errors(t *testing.T) {
 
 func TestParseCron_NeverFiresAgain(t *testing.T) {
 	t.Parallel()
-	s, err := schedule.ParseCron("0 0 30 2 *", time.UTC) // February 30th
+	s, err := schedule.ParseCron("0 0 30 2 *", time.UTC)
 	require.NoError(t, err)
 	assert.True(t, s.Next(utc("2026-01-01T00:00:00Z")).IsZero())
 	due, skipped := schedule.DueTicks(s, utc("2026-01-01T00:00:00Z"), utc("2027-01-01T00:00:00Z"), time.Hour, 10)
@@ -78,7 +78,6 @@ func TestParseCron_NeverFiresAgain(t *testing.T) {
 	assert.Zero(t, skipped)
 }
 
-// DST transitions.
 func TestParseCron_DST(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -86,27 +85,23 @@ func TestParseCron_DST(t *testing.T) {
 		tz   string
 		expr string
 		from string
-		want []string // UTC instants
+		want []string
 	}{
 		{
-			// Seoul has no DST: a daily job keeps a 24h period.
 			name: "seoul daily", tz: "Asia/Seoul", expr: "30 2 * * *", from: "2026-03-28T12:00:00Z",
 			want: []string{"2026-03-28T17:30:00Z", "2026-03-29T17:30:00Z", "2026-03-30T17:30:00Z"},
 		},
 		{
-			// 02:30 does not exist on 2026-03-08 in New York: that day is skipped.
 			name: "new york spring forward daily", tz: "America/New_York", expr: "30 2 * * *",
 			from: "2026-03-07T12:00:00Z",
 			want: []string{"2026-03-09T06:30:00Z", "2026-03-10T06:30:00Z"},
 		},
 		{
-			// Hourly ticks stay one real hour apart across the gap (01:00 EST, 03:00 EDT).
 			name: "new york spring forward hourly", tz: "America/New_York", expr: "0 * * * *",
 			from: "2026-03-08T05:00:00Z",
 			want: []string{"2026-03-08T06:00:00Z", "2026-03-08T07:00:00Z", "2026-03-08T08:00:00Z"},
 		},
 		{
-			// 01:30 happens twice on 2026-11-01 (EDT then EST): both fire.
 			name: "new york fall back daily", tz: "America/New_York", expr: "30 1 * * *",
 			from: "2026-10-31T12:00:00Z",
 			want: []string{"2026-11-01T05:30:00Z", "2026-11-01T06:30:00Z", "2026-11-02T06:30:00Z"},

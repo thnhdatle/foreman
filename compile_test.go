@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Generic type safety: each program under testdata/compile
-// misuses the API and must be rejected by the type checker.
 func TestCompile_MisuseDoesNotCompile(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{

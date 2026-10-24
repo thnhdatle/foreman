@@ -17,8 +17,7 @@ import (
 	"github.com/thnhdatle/foreman/internal/platform/clock"
 )
 
-// RequireInserted fails the test unless a job of the kind of expected with
-// equal args (compared as JSON) exists, and returns the newest such job.
+// RequireInserted fails the test unless a matching job exists and returns it.
 func RequireInserted[T foreman.JobArgs](
 	ctx context.Context, tb testing.TB, client *foreman.Client, expected T,
 ) *foreman.JobRow {
@@ -33,8 +32,7 @@ func RequireInserted[T foreman.JobArgs](
 	return row
 }
 
-// RequireNotInserted fails the test if a job of the kind of args with equal
-// args exists.
+// RequireNotInserted fails the test if a matching job exists.
 func RequireNotInserted[T foreman.JobArgs](ctx context.Context, tb testing.TB, client *foreman.Client, args T) {
 	tb.Helper()
 	row, err := findInserted(ctx, client, args)
@@ -47,7 +45,6 @@ func RequireNotInserted[T foreman.JobArgs](ctx context.Context, tb testing.TB, c
 	}
 }
 
-// errNotInserted reports that no matching job exists.
 var errNotInserted = errors.New("not inserted")
 
 func findInserted[T foreman.JobArgs](ctx context.Context, client *foreman.Client, expected T) (*foreman.JobRow, error) {
@@ -82,7 +79,6 @@ func mustJSON(v any) []byte {
 	return b
 }
 
-// canonical re-encodes JSON with sorted keys and exact numbers.
 func canonical(b []byte) ([]byte, error) {
 	dec := json.NewDecoder(bytes.NewReader(b))
 	dec.UseNumber()
@@ -99,31 +95,22 @@ func canonical(b []byte) ([]byte, error) {
 
 // WorkResult is the outcome of running a job with WorkJob.
 type WorkResult struct {
-	// State is the state the job would be written in: completed, retryable,
-	// scheduled (snoozed), discarded or cancelled.
-	State foreman.State
-	// ScheduledAt is the next run time for retryable and snoozed jobs.
+	State       foreman.State
 	ScheduledAt time.Time
-	// Err is the error recorded for the attempt, if any.
-	Err string
+	Err         string
 }
 
 // WorkOpts configures WorkJob.
 type WorkOpts struct {
-	// Attempt is the attempt number (default 1); MaxAttempts defaults to 25.
+	// Attempt is the attempt number. Default 1. MaxAttempts defaults to 25.
 	Attempt     int
 	MaxAttempts int
-	// Timeout applies to Work; 0 = none.
-	Timeout time.Duration
-	// RetryPolicy defaults to foreman.ExponentialBackoff{}.
+	Timeout     time.Duration
 	RetryPolicy foreman.RetryPolicy
-	// Clock defaults to the wall clock.
-	Clock foreman.Clock
+	Clock       foreman.Clock
 }
 
-// WorkJob runs worker on args in memory, through the same executor and
-// result mapping as a client, without a database. CompleteTx and Heartbeat
-// are unavailable (there is no client); use WorkInline for those.
+// WorkJob runs worker on args in memory, without a database.
 func WorkJob[T foreman.JobArgs](
 	ctx context.Context, tb testing.TB, worker foreman.Worker[T], args T, opts *WorkOpts,
 ) *WorkResult {
@@ -179,10 +166,7 @@ func WorkJob[T foreman.JobArgs](
 	return res
 }
 
-// WorkInline inserts args with client and runs the job synchronously on that
-// client through its middleware, executor and result mapping (Client.JobWork),
-// then returns the job as written. The client needs a worker for the kind;
-// it does not need to be started.
+// WorkInline inserts args and runs the job synchronously on client.
 func WorkInline[T foreman.JobArgs](
 	ctx context.Context, tb testing.TB, client *foreman.Client, args T, opts *foreman.InsertOpts,
 ) *foreman.JobRow {
@@ -200,8 +184,7 @@ func WorkInline[T foreman.JobArgs](
 	return row
 }
 
-// Clock is a manually advanced clock for tests; pass it as Config.Clock.
-// Every time a client writes or compares then comes from it.
+// Clock is a manually advanced clock for tests.
 type Clock struct {
 	f *clock.Fake
 }

@@ -33,7 +33,6 @@ func TestMigrate_UpDownUpAgain(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, v)
 
-	// Concurrent Up calls are serialised by the advisory lock.
 	var wg sync.WaitGroup
 	errs := make([]error, 4)
 	for i := range errs {
@@ -119,7 +118,6 @@ func loadVectors(t *testing.T) map[string]vector {
 	return out
 }
 
-// The golden vectors are the specification of the canonical form.
 func TestCanonicalJSON_GoldenVectors(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
