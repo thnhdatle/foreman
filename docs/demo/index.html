@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foreman — Job Queue in Postgres</title>
+<script>
+  // Edit these.
+  const SITE = "https://your-site.example";
+  const PROJECT = "foreman";
+  const REPO = "https://github.com/thnhdatle/foreman";
+</script>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0e1117; --panel: #161b24; --line: #2a313c; --text: #e6edf3; --muted: #8b96a5;
+    --b: #2dd4bf; --a: #818cf8; --stall: #ef4444; --track: #0b0e14;
+    --big: 1.75rem; --body: 1rem; --small: .8125rem;
+    --ja: color-mix(in srgb, var(--a) 16%, transparent); --la: color-mix(in srgb, var(--a) 60%, transparent);
+    --jb: color-mix(in srgb, var(--b) 20%, transparent);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 2.2rem 16px 3rem; }
+  .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.7rem; }
+  .btn { display: inline-flex; align-items: center; color: var(--text); text-decoration: none;
+    font: 600 var(--small)/1 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: .68rem 1rem;
+    border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--text) 4%, transparent);
+    cursor: pointer; transition: transform .16s ease, border-color .16s ease; }
+  .btn:hover { border-color: currentColor; }
+  .back:hover { transform: translateX(-2px); }
+  h1 { margin: 0 0 .25rem; font-size: var(--big); line-height: 1.2; letter-spacing: -.01em; }
+  h1 span { color: var(--b); }
+  .sub { margin: 0 0 1.8rem; color: var(--muted); font-size: var(--body); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 1.5rem 1.4rem; margin-bottom: 1.4rem; }
+  h2 { margin: 0 0 1.3rem; font-size: var(--small); text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-weight: 600; }
+
+  /* how it works */
+  .scene { display: grid; grid-template-columns: 1fr auto 1fr; gap: 1rem; align-items: center; }
+  .boxlbl { font-size: var(--small); font-weight: 700; margin-bottom: .5rem; }
+  .db { border: 1.5px solid var(--line); border-radius: 10px; padding: .7rem .75rem .3rem; }
+  .who { font-size: var(--small); color: var(--muted); margin-bottom: .2rem; }
+  .who b { font-weight: 700; } .who .na { color: var(--a); } .who .nb { color: var(--b); }
+  .row { display: flex; gap: 3px; align-items: center; height: 22px; margin-bottom: .55rem; }
+  .j { width: 13px; height: 18px; border-radius: 3px; border: 1.5px solid; flex: none; }
+  .ja { background: var(--ja); border-color: var(--la); }
+  .jb { background: var(--jb); border-color: var(--b); }
+  .row .more { font-size: var(--small); color: var(--muted); margin-left: 3px; white-space: nowrap; }
+  .mid { display: flex; align-items: center; gap: .5rem; color: var(--muted); }
+  .fm { border: 1.5px solid var(--b); color: var(--b); border-radius: 10px; padding: .6rem .8rem; font-weight: 700; font-size: var(--body); }
+  .slots { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .slot { height: 32px; border: 1.5px dashed var(--line); border-radius: 7px; padding: 4px; }
+  .slot i { display: block; height: 100%; border-radius: 4px; border: 1.5px solid; background: var(--ja); border-color: var(--la); }
+  .step { position: relative; height: 1.6em; margin-top: 1.2rem; font-size: var(--body); }
+  .step p { position: absolute; inset: 0; margin: 0; opacity: 0; }
+  .step p b { color: var(--b); }
+  .step p span { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: .4rem; }
+  .nb1 { opacity: 0; }
+
+  .live .nb1 { animation: nb1 10s linear infinite; }
+  .live .s3 i { animation: s3 10s linear infinite; }
+  .live .s1 i, .live .s2 i, .live .s4 i { animation: turn 10s linear infinite; }
+  .live .t1 { animation: t1 10s linear infinite; } .live .t2 { animation: t2 10s linear infinite; }
+  .live .t3 { animation: t3 10s linear infinite; } .live .t4 { animation: t4 10s linear infinite; }
+  /* 0-25% A only, 25% B adds a job, 50% next turn takes it, 75-100% B is running */
+  @keyframes nb1 { 0%, 24% { opacity: 0; transform: scale(.4); } 27%, 48% { opacity: 1; transform: none; }
+    51%, 100% { opacity: 0; transform: translateX(16px); } }
+  @keyframes turn { 0%, 1% { opacity: 0; } 4%, 46% { opacity: 1; } 49% { opacity: 0; } 52%, 97% { opacity: 1; } 100% { opacity: 0; } }
+  @keyframes s3 {
+    0%, 1% { opacity: 0; background: var(--ja); border-color: var(--la); }
+    4%, 46% { opacity: 1; background: var(--ja); border-color: var(--la); }
+    49% { opacity: 0; transform: translateY(-6px); background: var(--jb); border-color: var(--b); }
+    52%, 97% { opacity: 1; transform: none; background: var(--jb); border-color: var(--b); }
+    100% { opacity: 0; background: var(--jb); border-color: var(--b); }
+  }
+  @keyframes t1 { 0%, 23% { opacity: 1; } 25%, 100% { opacity: 0; } }
+  @keyframes t2 { 0%, 25% { opacity: 0; } 27%, 48% { opacity: 1; } 50%, 100% { opacity: 0; } }
+  @keyframes t3 { 0%, 50% { opacity: 0; } 52%, 73% { opacity: 1; } 75%, 100% { opacity: 0; } }
+  @keyframes t4 { 0%, 75% { opacity: 0; } 77%, 98% { opacity: 1; } 100% { opacity: 0; } }
+
+  /* result */
+  .q { font-size: var(--body); font-weight: 600; margin: 0 0 1.2rem; }
+  .lane { display: grid; grid-template-columns: 1fr auto; gap: .35rem 1.2rem; align-items: center; margin-bottom: 1.1rem; }
+  .lane .name { grid-column: 1 / -1; font-size: var(--small); color: var(--muted); }
+  .lane .name b { color: var(--text); }
+  .track { position: relative; height: 24px; border-radius: 6px; overflow: hidden; background: var(--track); border: 1px solid var(--line); }
+  .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 100%;
+    background: repeating-linear-gradient(90deg, var(--ja) 0 12px, transparent 12px 15px); }
+  .bj { position: absolute; top: 3px; bottom: 3px; width: 12px; border-radius: 3px; background: var(--b); }
+  .slow .bj { right: 3px; background: var(--stall); }
+  .fast .bj { left: 18px; }
+  .val { font-size: var(--big); font-weight: 700; line-height: 1; min-width: 4.2ch; text-align: right; font-variant-numeric: tabular-nums; }
+  .slow .val { color: var(--stall); } .fast .val { color: var(--b); }
+  .live .fill { animation: sweep 6s linear infinite; }
+  .live .slow .bj { animation: wait 6s linear infinite; }
+  .live .fast .bj { animation: go 6s linear infinite; }
+  @keyframes sweep { 0% { width: 0; } 80%, 100% { width: 100%; } }
+  @keyframes wait { 0%, 79% { background: var(--stall); } 80%, 100% { background: var(--b); } }
+  @keyframes go { 0%, 3% { background: var(--stall); } 5%, 100% { background: var(--b); } }
+  .note { font-size: var(--small); color: var(--muted); margin: .4rem 0 0; }
+  .ctl { display: flex; justify-content: flex-end; }
+
+  .paused * { animation-play-state: paused !important; }
+  .still * { animation-delay: -9.5s !important; animation-play-state: paused !important; }
+  .still .res * { animation-delay: -5.9s !important; }
+
+  @media (max-width: 560px) {
+    :root { --big: 1.4rem; }
+    .scene { grid-template-columns: 1fr; gap: .8rem; }
+    .mid { justify-content: center; }
+    .mid .ar { transform: rotate(90deg); }
+    .slots { grid-template-columns: repeat(4, 1fr); }
+    .step { height: 3em; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="demo">
+  <div class="top">
+    <a class="btn back" id="back" href="#">← back to project</a>
+    <a class="btn" id="code" href="#">code</a>
+  </div>
+
+  <h1><span>Foreman</span> — a job queue in Postgres</h1>
+  <p class="sub">A tenant with a huge pile of jobs can't make the other tenants wait.</p>
+
+  <section class="card idea">
+    <h2>How it works</h2>
+    <div class="scene">
+      <div>
+        <div class="boxlbl">Postgres</div>
+        <div class="db">
+          <div class="who"><b class="na">Tenant A</b></div>
+          <div class="row"><i class="j ja"></i><i class="j ja"></i><i class="j ja"></i><i class="j ja"></i><i class="j ja"></i><i class="j ja"></i><i class="j ja"></i><i class="j ja"></i><span class="more">… 240,000 jobs</span></div>
+          <div class="who"><b class="nb">Tenant B</b></div>
+          <div class="row"><i class="j jb nb1"></i></div>
+        </div>
+      </div>
+      <div class="mid"><span class="ar">→</span><div class="fm">Foreman</div><span class="ar">→</span></div>
+      <div>
+        <div class="boxlbl">Workers</div>
+        <div class="slots">
+          <div class="slot s1"><i></i></div><div class="slot s2"><i></i></div>
+          <div class="slot s3"><i></i></div><div class="slot s4"><i></i></div>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <p class="t1"><span>1</span>Tenant A has 240,000 jobs waiting. Workers are busy with them.</p>
+      <p class="t2"><span>2</span>Tenant B adds one job.</p>
+      <p class="t3"><span>3</span>Foreman gives workers jobs from both tenants in turn.</p>
+      <p class="t4"><span>4</span>B's job runs now, <b>not after A's 240,000</b>.</p>
+    </div>
+  </section>
+
+  <section class="card res">
+    <h2>The result</h2>
+    <p class="q">How long does tenant B's job wait?</p>
+    <div class="lane slow">
+      <div class="name"><b>First come, first served</b></div>
+      <div class="track"><div class="fill"></div><div class="bj"></div></div>
+      <div class="val">64.6 s</div>
+    </div>
+    <div class="lane fast">
+      <div class="name"><b>Foreman</b></div>
+      <div class="track"><div class="fill"></div><div class="bj"></div></div>
+      <div class="val">38 ms</div>
+    </div>
+    <p class="note">Tenant A has 240,000 jobs waiting. 95% of B's jobs start within this time.</p>
+  </section>
+
+  <div class="ctl"><button class="btn" id="play" type="button">❚❚ pause</button></div>
+</div>
+<script>
+  document.getElementById("back").href = SITE.replace(/\/$/, "") + "/projects/" + PROJECT + "/";
+  document.getElementById("code").href = REPO;
+
+  const demo = document.getElementById("demo");
+  const btn = document.getElementById("play");
+  let running = false;
+
+  function start() {
+    demo.classList.remove("still", "paused");
+    demo.classList.add("live");
+    running = true;
+    btn.textContent = "❚❚ pause";
+  }
+  function pause() {
+    running = false;
+    demo.classList.add("paused");
+    btn.textContent = "▶ play";
+  }
+  btn.addEventListener("click", function () { running ? pause() : start(); });
+
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    demo.classList.add("live", "still");
+    btn.textContent = "▶ play";
+  } else {
+    start();
+  }
+</script>
+</body>
+</html>
