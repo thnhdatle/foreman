@@ -67,9 +67,9 @@ starving the others.
 ## Install
 
 ```sh
-go get github.com/thnhdatle/foreman@v0.1.0                    # library
-go install github.com/thnhdatle/foreman/cmd/foreman@v0.1.0    # admin CLI
-docker run --rm ghcr.io/thnhdatle/foreman:v0.1.0 version      # admin CLI in Docker
+go get github.com/thnhdatle/foreman@v0.1.1                    # library
+go install github.com/thnhdatle/foreman/cmd/foreman@v0.1.1    # admin CLI
+docker run --rm ghcr.io/thnhdatle/foreman:v0.1.1 version      # admin CLI in Docker
 ```
 
 Prebuilt CLI binaries for Linux and macOS are on the [releases page](https://github.com/thnhdatle/foreman/releases).
